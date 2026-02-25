@@ -55,6 +55,8 @@ How this differs from existing AI memory: ChatGPT Memory, Claude Memory and the 
 - **Proactive Outreach** — Follows up on events, checks in when idle, respects quiet hours
 - **Semantic Search** — BGE-M3 embeddings, retrieves relevant memories by meaning
 
+> **On accuracy:** No LLM today is specifically trained for personal profile extraction, so results may occasionally be off. When you spot something inaccurate, you can **reject** incorrect memories or **close** outdated ones in the Web Dashboard. Riverse intentionally does not allow manual editing of memory content — wrong memories are like sediment in a river, meant to be washed away by the current, not sculpted by hand. As conversations accumulate, the River Algorithm continuously self-corrects through multi-turn verification and contradiction detection — profiles become more accurate over time.
+
 ## Sleep — Offline Memory Consolidation
 
 Sleep is the process where Riverse digests conversations and updates your profile. It is triggered automatically or on demand:
