@@ -60,6 +60,16 @@ def _log(key: str) -> str:
     lang = _config.get("language", "en")
     return _LOG.get(lang, _LOG["en"]).get(key, _LOG["en"].get(key, key))
 
+def _run_sleep() -> str | None:
+    try:
+        from agent.sleep import run as sleep_run
+        sleep_run()
+        logger.info(_log("sleep_done"))
+        return "💤 记忆整理完成"
+    except Exception:
+        logger.exception(_log("sleep_error"))
+        return None
+
 _config: dict = {}
 _manager: SessionManager | None = None
 _dc_config: dict = {}
@@ -216,6 +226,13 @@ async def cmd_new(ctx: commands.Context):
     _manager.remove(session_id)
     BL = get_labels("bot.messages", _config.get("language", "zh"))
     await ctx.reply(BL["session_reset"])
+
+    async def _sleep_and_notify():
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, _run_sleep)
+        if result:
+            await ctx.send(result)
+    asyncio.ensure_future(_sleep_and_notify())
 
 @tasks.loop(minutes=30)
 async def proactive_loop():
