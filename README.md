@@ -70,7 +70,7 @@ Sleep is the process where Riverse digests conversations and updates your profil
 
 ```bash
 # crontab -e
-0 0 * * * cd /path/to/Riverse && /path/to/python -c "from agent.sleep import run; run()"
+0 0 * * * cd /path/to/JKRiver && /path/to/python -c "from agent.sleep import run; run()"
 ```
 
 ## Tech Stack
@@ -92,7 +92,7 @@ Sleep is the process where Riverse digests conversations and updates your profil
 ## Project Structure
 
 ```
-Riverse/
+JKRiver/
 ├── settings.yaml            # Main config (database, LLM, bot tokens, etc.)
 ├── agent/
 │   ├── main.py              # CLI entry point
@@ -131,7 +131,7 @@ Riverse/
 
 ```bash
 git clone https://github.com/wangjiake/JKRiver.git
-cd Riverse
+cd JKRiver
 python3 -m venv .venv
 source .venv/bin/activate        # macOS / Linux
 # .venv\Scripts\activate         # Windows
