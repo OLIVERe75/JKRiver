@@ -13,7 +13,7 @@
 
 ## Docker 快速体验
 
-不想装 Python 和 PostgreSQL？**[用 Docker 三条命令即可体验](docker/README.md)** — 支持 OpenAI、DeepSeek、Groq 或任何 OpenAI 兼容接口。
+不想装 Python 和 PostgreSQL？**[用 Docker 三条命令即可体验](https://github.com/wangjiake/Riverse-Docker)** — 支持 OpenAI、DeepSeek、Groq 或任何 OpenAI 兼容接口。
 
 ---
 

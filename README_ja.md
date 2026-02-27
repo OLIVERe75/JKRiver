@@ -13,7 +13,7 @@
 
 ## Docker でクイック体験
 
-Python や PostgreSQL をインストールしたくない方へ。**[Docker で 3 コマンドですぐに体験](docker/README.md)** — OpenAI、DeepSeek、Groq、その他の OpenAI 互換 API に対応。
+Python や PostgreSQL をインストールしたくない方へ。**[Docker で 3 コマンドですぐに体験](https://github.com/wangjiake/Riverse-Docker)** — OpenAI、DeepSeek、Groq、その他の OpenAI 互換 API に対応。
 
 ---
 

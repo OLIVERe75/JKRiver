@@ -13,7 +13,7 @@
 
 ## Quick Try with Docker
 
-Don't want to install Python or PostgreSQL? **[Run with Docker in 3 commands](docker/README.md)** — supports OpenAI, DeepSeek, Groq, or any OpenAI-compatible API.
+Don't want to install Python or PostgreSQL? **[Run with Docker in 3 commands](https://github.com/wangjiake/Riverse-Docker)** — supports OpenAI, DeepSeek, Groq, or any OpenAI-compatible API.
 
 ---
 
