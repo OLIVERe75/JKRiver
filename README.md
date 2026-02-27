@@ -11,6 +11,12 @@
 [![X (Twitter)](https://img.shields.io/badge/X-@JKRiverse-000000?logo=x&logoColor=white)](https://x.com/JKRiverse)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/PnAt4Xkt)
 
+## Quick Try with Docker
+
+Don't want to install Python or PostgreSQL? **[Run with Docker in 3 commands](docker/README.md)** — supports OpenAI, DeepSeek, Groq, or any OpenAI-compatible API.
+
+---
+
 ## What is Riverse?
 
 You've been talking to AI for years, but no AI actually knows you. Switch platforms and you start from zero. Your data is scattered across clouds you don't control.

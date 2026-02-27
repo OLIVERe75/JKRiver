@@ -11,6 +11,12 @@
 [![X (Twitter)](https://img.shields.io/badge/X-@JKRiverse-000000?logo=x&logoColor=white)](https://x.com/JKRiverse)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/PnAt4Xkt)
 
+## Docker でクイック体験
+
+Python や PostgreSQL をインストールしたくない方へ。**[Docker で 3 コマンドですぐに体験](docker/README.md)** — OpenAI、DeepSeek、Groq、その他の OpenAI 互換 API に対応。
+
+---
+
 ## Riverse とは？
 
 長年 AI と会話してきたのに、どの AI もあなたを知りません。プラットフォームを変えればゼロからやり直し。あなたのデータはあちこちのクラウドに散らばり、あなたのものではありません。

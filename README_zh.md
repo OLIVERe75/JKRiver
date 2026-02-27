@@ -11,6 +11,12 @@
 [![X (Twitter)](https://img.shields.io/badge/X-@JKRiverse-000000?logo=x&logoColor=white)](https://x.com/JKRiverse)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/PnAt4Xkt)
 
+## Docker 快速体验
+
+不想装 Python 和 PostgreSQL？**[用 Docker 三条命令即可体验](docker/README.md)** — 支持 OpenAI、DeepSeek、Groq 或任何 OpenAI 兼容接口。
+
+---
+
 ## 什么是 Riverse？
 
 你和 AI 聊了这么久，但每个 AI 都不认识你。换一个平台，一切从零开始。你的数据散落在各个云端，不属于你。

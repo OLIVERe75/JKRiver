@@ -1,43 +1,73 @@
-# 语言 | Language | 言語 : zh / en / ja
+# ═══════════════════════════════════════════════════════════════
+#  JKRiver — AI 聊天伴侣配置文件
+#  JKRiver — AI Chat Companion Configuration
+#  JKRiver — AIチャットコンパニオン設定ファイル
+# ═══════════════════════════════════════════════════════════════
+
+
+# ─── 语言 | Language | 言語 ─────────────────────────────────
+#  界面和 AI 回复的语言 | Language for UI and AI responses | UIとAI応答の言語
+#  zh = 中文 | en = English | ja = 日本語
 language: "zh"
 
-# 数据库 | Database | データベース
-# user: 改为你的 PostgreSQL 用户名 | change to your PostgreSQL username | PostgreSQL ユーザー名に変更
+
+# ─── 数据库 | Database | データベース ────────────────────────
+#  PostgreSQL 连接信息，需要先安装并启动 PostgreSQL
+#  PostgreSQL connection info. Install and start PostgreSQL first
+#  PostgreSQL 接続情報。先に PostgreSQL をインストールして起動してください
 database:
-    name: "Riverse"
-    user: "postgres"
-    host: "localhost"
+    name: "Riverse"                     # 数据库名 | Database name | データベース名
+    user: "postgres"                    # Windows 默认 postgres 不用改 | macOS/Linux: 终端运行 whoami 查你的用户名填这里 | Windows: そのまま / macOS・Linux: whoami で確認
+    host: "localhost"                   # 本地运行填 localhost | Use localhost for local | ローカルは localhost
 
-# 当前 LLM 提供者 | Active LLM provider | 使用する LLM : openai / local
-llm_provider: "openai"
 
-# 本地 Ollama | Local Ollama | ローカル Ollama
-local:
-    model: "qwen2.5:14b"
-    api_base: "http://localhost:11434"
-    temperature: 0.7
-    max_tokens: 2048
+# ─── LLM 主模型 | Primary LLM | メイン LLM ──────────────────
+#  选择 AI 模型提供商：openai = 远端 API（OpenAI/DeepSeek 等） / local = 本地 Ollama
+#  Choose AI provider: openai = remote API (OpenAI/DeepSeek/etc.) / local = local Ollama
+#  AIプロバイダー選択: openai = リモートAPI / local = ローカル Ollama
+llm_provider: "openai"                  # "openai" = 用远端 API（填下面 openai 配置）| "local" = 用本地 Ollama（填下面 local 配置）| "openai": 下の openai 設定 / "local": 下の local 設定
 
-# OpenAI API
+#  ── 远端 API 配置（当 llm_provider = openai 时生效）──
+#  ── Remote API config (active when llm_provider = openai) ──
+#  ── リモート API 設定（llm_provider = openai の場合有効）──
+#  支持所有 OpenAI 兼容接口：OpenAI / DeepSeek / Groq / 本地 vLLM 等
+#  Works with any OpenAI-compatible API: OpenAI / DeepSeek / Groq / local vLLM / etc.
+#  OpenAI 互換 API に対応: OpenAI / DeepSeek / Groq / ローカル vLLM など
 openai:
-    model: "gpt-4o-mini"
-    api_base: "https://api.openai.com"
-    api_key: ""
+    model: "gpt-4o-mini"                # 模型名 | Model name | モデル名
+    api_base: "https://api.openai.com"  # API 地址 | API endpoint | APIエンドポイント
+    api_key: ""                         # 你的 API 密钥 | Your API key | APIキー
+    temperature: 0.7                    # 回复随机性 0-1 | Response randomness 0-1 | 応答のランダム性 0-1
+    max_tokens: 2048                    # 最大回复长度 | Max response length | 最大応答長
+
+#  ── 本地 Ollama 配置（当 llm_provider = local 时生效）──
+#  ── Local Ollama config (active when llm_provider = local) ──
+#  ── ローカル Ollama 設定（llm_provider = local の場合有効）──
+#  需要先安装 Ollama 并拉取模型：ollama pull qwen2.5:14b
+#  Install Ollama first, then pull model: ollama pull qwen2.5:14b
+#  先に Ollama をインストールしてモデルを取得: ollama pull qwen2.5:14b
+local:
+    model: "qwen2.5:14b"               # Ollama 模型名 | Ollama model name | Ollama モデル名
+    api_base: "http://localhost:11434"  # Ollama 地址 | Ollama address | Ollama アドレス
     temperature: 0.7
     max_tokens: 2048
 
-# 云端 LLM 升级链 | Cloud LLM escalation | クラウド LLM エスカレーション
+
+# ─── 云端 LLM 升级链 | Cloud LLM Escalation | クラウド LLM エスカレーション ──
+#  当主模型回答质量不够时，自动切换到更强的模型重试
+#  Automatically retries with a stronger model when the primary model's answer is poor
+#  主モデルの回答品質が不十分な場合、より強力なモデルで自動リトライ
 cloud_llm:
     enabled: true
     providers:
         - name: "openai"
           model: "gpt-4o"
           api_base: "https://api.openai.com"
-          api_key: ""
+          api_key: ""                   # 填写 API 密钥 | Enter API key | APIキーを入力
           temperature: 0.7
           max_tokens: 2048
-          search: true
-          priority: 1
+          search: true                  # 启用网页搜索能力 | Enable web search | ウェブ検索を有効化
+          priority: 1                   # 优先级，数字越小越优先 | Priority, lower = higher | 優先度、小さいほど優先
         - name: "deepseek"
           model: "deepseek-chat"
           api_base: "https://api.deepseek.com"
@@ -46,37 +76,50 @@ cloud_llm:
           max_tokens: 2048
           priority: 2
     escalation:
-        auto: true
-        feedback: true
-        min_response_length: 20
-        failure_keywords:
+        auto: true                      # 自动升级 | Auto-escalate | 自動エスカレーション
+        feedback: true                  # 升级后告知用户 | Notify user after escalation | エスカレーション後にユーザーに通知
+        min_response_length: 20         # 回复少于此字数视为低质量 | Replies shorter than this are low quality | これより短い回答は低品質と判定
+        failure_keywords:               # 包含这些关键词视为失败 | Replies containing these are failures | これらを含む回答は失敗と判定
             - "我不确定"
             - "我无法"
             - "抱歉，我不知道"
             - "超出了我的能力"
 
-# 工具 | Tools | ツール
+
+# ─── 工具 | Tools | ツール ────────────────────────────────
+#  AI 可调用的工具能力 | Tool capabilities available to AI | AIが使用可能なツール
 tools:
     enabled: true
-    # 语音转文字 | Voice transcription | 音声文字起こし
+
+    # 语音转文字（用于 Telegram/Discord 语音消息）
+    # Voice-to-text (for Telegram/Discord voice messages)
+    # 音声→テキスト変換（Telegram/Discord 音声メッセージ用）
     voice_transcribe:
-        # 不填 api_base/api_key 则复用主 LLM | Inherits main LLM config if empty | 未設定なら主LLM設定を継承
-        model: "whisper-1"
-        language: "zh"
-    # 图像识别 | Image description | 画像認識 : "openai" / "local" (Ollama llava)
+        model: "whisper-1"              # OpenAI Whisper 模型 | OpenAI Whisper model | OpenAI Whisper モデル
+        language: "zh"                  # 语音语言 | Voice language | 音声の言語
+
+    # 图像识别（AI 看图说话）
+    # Image understanding (AI describes images)
+    # 画像認識（AIが画像を説明）
     image_describe:
-        provider: "openai"
+        provider: "openai"              # "openai" 或 "local"(Ollama llava) | "openai" or "local" | "openai" か "local"
         model: "gpt-4o"
-    # 文件读取 | File read | ファイル読み取り
+
+    # 文件读取（AI 读取用户发送的文件）
+    # File reading (AI reads files sent by user)
+    # ファイル読み取り（ユーザーが送信したファイルをAIが読み取り）
     file_read:
         enabled: true
-        max_file_size: 1048576          # 1 MB
-        allowed_dirs: []                # 空=不限 | empty=no restriction | 空=制限なし
-    # Shell 命令 | Shell exec | シェル実行
+        max_file_size: 1048576          # 最大 1MB | Max 1MB | 最大 1MB
+        allowed_dirs: []                # 空=不限目录 | empty=no restriction | 空=制限なし
+
+    # Shell 命令执行（安全考虑，默认关闭）
+    # Shell command execution (disabled by default for security)
+    # シェルコマンド実行（セキュリティのためデフォルト無効）
     shell_exec:
-        enabled: false                  # 默认禁用 | Disabled by default | デフォルト無効
-        timeout: 30
-        whitelist:
+        enabled: false
+        timeout: 30                     # 超时秒数 | Timeout in seconds | タイムアウト秒数
+        whitelist:                      # 仅允许这些命令 | Only these commands allowed | これらのコマンドのみ許可
             - "ls"
             - "dir"
             - "cat"
@@ -92,66 +135,97 @@ tools:
             - "git log"
             - "git diff"
             - "git branch"
-    # 网页搜索 | Web search | ウェブ検索
-    # 自动取 cloud_llm 中 search=true 的 provider | Auto-picks search-enabled provider | search=trueのproviderを自動選択
+
+    # 网页搜索（自动使用 cloud_llm 中 search=true 的模型）
+    # Web search (auto-picks search-enabled model from cloud_llm)
+    # ウェブ検索（cloud_llm の search=true のモデルを自動使用）
     web_search:
 
-# Telegram Bot
-telegram:
-    bot_token: ""
-    temp_dir: "tmp/telegram"
-    allowed_user_ids: []                # 留空=不限 | empty=allow all | 空=全員許可
 
-# 语音合成 | Text-to-Speech | 音声合成
+# ─── Telegram Bot ─────────────────────────────────────────
+#  通过 Telegram 和 AI 聊天。在 Telegram 找 @BotFather 创建 Bot 获取 token
+#  Chat with AI via Telegram. Create a bot with @BotFather to get the token
+#  Telegram 経由で AI とチャット。@BotFather で Bot を作成してトークンを取得
+telegram:
+    bot_token: ""                       # Bot token，留空则不启动 | Leave empty to disable | 空なら無効
+    temp_dir: "tmp/telegram"
+    allowed_user_ids: []                # 允许的用户 ID，留空=所有人 | Allowed user IDs, empty=everyone | 許可するユーザーID、空=全員
+
+
+# ─── Discord Bot ──────────────────────────────────────────
+#  通过 Discord 和 AI 聊天。在 Discord Developer Portal 创建 Bot 获取 token
+#  Chat with AI via Discord. Create a bot in Discord Developer Portal
+#  Discord 経由で AI とチャット。Discord Developer Portal で Bot を作成
+discord:
+    bot_token: ""                       # Bot token，留空则不启动 | Leave empty to disable | 空なら無効
+    temp_dir: "tmp/discord"
+    allowed_user_ids: []
+
+
+# ─── 语音合成 | Text-to-Speech | 音声合成 ─────────────────
+#  AI 回复转语音（需要 Edge TTS）
+#  Convert AI replies to speech (requires Edge TTS)
+#  AI応答を音声に変換（Edge TTS が必要）
 tts:
     enabled: false
     voices:
         zh: "zh-CN-XiaoxiaoNeural"
         en: "en-US-AriaNeural"
     temp_dir: "tmp/tts"
-    max_chars: 500                      # 超长截断 | Truncate if longer | 超過分は切り捨て
+    max_chars: 500                      # 超过此长度截断 | Truncate if longer | この長さを超えると切り捨て
 
-# 语义搜索 | Embedding search | セマンティック検索
+
+# ─── 语义搜索 | Embedding Search | セマンティック検索 ──────
+#  用向量搜索增强 AI 的记忆检索能力（需要 Ollama 运行 bge-m3 模型）
+#  Enhance AI memory retrieval with vector search (requires Ollama with bge-m3)
+#  ベクトル検索で AI の記憶検索を強化（Ollama で bge-m3 が必要）
+#  安装：ollama pull bge-m3 | Install: ollama pull bge-m3
 embedding:
     enabled: false
     model: "bge-m3"
     api_base: "http://localhost:11434"
     search:
-        top_k: 5
-        min_score: 0.40
+        top_k: 5                        # 返回最相关的条数 | Number of top results | 上位結果の数
+        min_score: 0.40                 # 最低相似度 | Minimum similarity | 最小類似度
 
-# 技能系统 | Skills | スキル
+
+# ─── 技能系统 | Skills | スキル ────────────────────────────
+#  AI 的可扩展技能模块（天气查询、日程提醒等）
+#  Extensible skill modules for AI (weather, reminders, etc.)
+#  AIの拡張スキルモジュール（天気、リマインダーなど）
 skills:
     enabled: true
 
-# MCP 服务 | MCP servers | MCPサーバー
+
+# ─── MCP 服务 | MCP Servers | MCPサーバー ──────────────────
+#  Model Context Protocol 外部工具服务
+#  Model Context Protocol external tool servers
+#  Model Context Protocol 外部ツールサーバー
 mcp:
     enabled: false
     servers: []
 
-# Discord Bot
-discord:
-    bot_token: ""
-    temp_dir: "tmp/discord"
-    allowed_user_ids: []
 
-# 主动推送 | Proactive messaging | プロアクティブ通知
+# ─── 主动推送 | Proactive Messaging | プロアクティブ通知 ──
+#  AI 主动发消息给你（事件跟进、策略建议、闲时关心）
+#  AI proactively messages you (event follow-ups, strategy suggestions, idle check-ins)
+#  AI からの能動的メッセージ（イベントフォロー、戦略提案、アイドルチェック）
 proactive:
     enabled: true
-    scan_interval_minutes: 30
-    quiet_hours:
+    scan_interval_minutes: 30           # 扫描间隔 | Scan interval | スキャン間隔
+    quiet_hours:                        # 免打扰时段 | Do not disturb hours | 静かな時間帯
         start: "23:00"
         end: "08:00"
-    max_messages_per_day: 3
-    min_gap_minutes: 120
+    max_messages_per_day: 3             # 每天最多推送条数 | Max messages per day | 1日の最大メッセージ数
+    min_gap_minutes: 120                # 两次推送最小间隔 | Min gap between messages | メッセージ間の最小間隔
     triggers:
-        event_followup:
+        event_followup:                 # 重要事件自动跟进 | Auto follow-up on important events | 重要イベントの自動フォロー
             enabled: true
             min_importance: 0.6
             followup_after_hours: 24
             max_age_days: 7
-        strategy:
+        strategy:                       # 画像策略触发 | Profile strategy triggers | プロフィール戦略トリガー
             enabled: true
-        idle_checkin:
+        idle_checkin:                   # 长时间没聊自动关心 | Check in after long silence | 長時間の沈黙後にチェックイン
             enabled: true
             idle_hours: 48
