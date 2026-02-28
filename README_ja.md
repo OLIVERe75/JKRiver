@@ -18,6 +18,8 @@
 
 環境構築不要。**[Docker で 3 コマンドですぐに体験](https://github.com/wangjiake/Riverse-Docker)**
 
+📖 **ドキュメント：[wangjiake.github.io/riverse-docs](https://wangjiake.github.io/riverse-docs/ja/)**
+
 ---
 
 ## RAG メモリ vs. 河流アルゴリズム

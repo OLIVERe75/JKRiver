@@ -18,6 +18,8 @@
 
 Don't want to install anything? **[Run with Docker in 3 commands](https://github.com/wangjiake/Riverse-Docker)**
 
+📖 **Full documentation: [wangjiake.github.io/riverse-docs](https://wangjiake.github.io/riverse-docs/)**
+
 ---
 
 ## RAG Memory vs. River Algorithm

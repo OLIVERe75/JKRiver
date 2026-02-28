@@ -18,6 +18,8 @@
 
 不想装环境？**[用 Docker 三条命令即可体验](https://github.com/wangjiake/Riverse-Docker)**
 
+📖 **完整文档：[wangjiake.github.io/riverse-docs](https://wangjiake.github.io/riverse-docs/zh/)**
+
 ---
 
 ## RAG 记忆 vs. 河流算法
