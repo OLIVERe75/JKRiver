@@ -93,8 +93,8 @@ async def new_session():
 @app.post("/sleep")
 async def trigger_sleep():
     try:
-        from agent.sleep import run as sleep_run
-        sleep_run()
+        from agent.sleep import run_async as sleep_run_async
+        await sleep_run_async()
         from agent.config.prompts import get_labels
         L = get_labels("context.labels", _config.get("language", "zh"))
         return {"status": "ok", "message": L["memory_done"]}

@@ -34,8 +34,8 @@ async def main_async():
     except (KeyboardInterrupt, EOFError):
         pass
     finally:
-        from agent.sleep import run as sleep_run
-        sleep_run()
+        from agent.sleep import run_async as sleep_run_async
+        await sleep_run_async()
 
 def main():
     asyncio.run(main_async())

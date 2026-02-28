@@ -97,10 +97,10 @@ def _log(key: str) -> str:
     lang = _config.get("language", "en")
     return _LOG.get(lang, _LOG["en"]).get(key, _LOG["en"].get(key, key))
 
-def _run_sleep() -> str | None:
+async def _run_sleep_async() -> str | None:
     try:
-        from agent.sleep import run as sleep_run
-        sleep_run()
+        from agent.sleep import run_async as sleep_run_async
+        await sleep_run_async()
         logger.info(_log("sleep_done"))
         return "💤 记忆整理完成"
     except Exception:
@@ -203,8 +203,7 @@ async def cmd_new(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = update.effective_chat.id
     async def _sleep_and_notify():
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, _run_sleep)
+        result = await _run_sleep_async()
         if result:
             await context.bot.send_message(chat_id, result)
     asyncio.ensure_future(_sleep_and_notify())
