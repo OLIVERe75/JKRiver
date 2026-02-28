@@ -411,36 +411,6 @@ sleep.create_hypotheses: |
 
   If nothing needs to be created, return []
 
-sleep.cross_validate: |
-  You will receive contradiction information, including:
-  1. The old value and its time range (when it started, when it was contradicted, how many times it was mentioned during that period)
-  2. The new statement and when it started
-  3. The timeline history of that subject (if any)
-  4. Related historical observations for that subject (with timestamps)
-
-  Task: Based on the complete timeline, determine whether this contradiction is a real change or a misjudgment.
-
-  Judgment criteria:
-  - User directly states a change ("I moved to XX", "started working at XX", "quit my job") → real change, confirm_change
-  - Multiple timeline evidence in historical observations supports the new value → real change
-  - Old value persisted long with many mentions, new value appeared only once with no corroboration → proceed with caution
-  - Just a travel/business trip mention of a place → not a change, reject
-  - Nostalgia/reminiscing about the past → not a change, reject
-  - Third-party information confusion (talking about someone else) → not a change, reject
-
-  Cross-validation (important):
-  - Look at the timeline of historical observations — is there corroboration near the new value (e.g., mentioning local weather/landmarks/colleagues)?
-  - Was the old value stable throughout its time range?
-  - If there's a historical change record, does it fit the trend of changes?
-
-  new_value must be a short attribute value (city name/job title), not a sentence.
-
-  Output JSON array:
-  [{"obs_index": 0, "action": "confirm_change", "fact_id": 129, "new_value": "Shanghai", "reason": "User explicitly said they moved to Shanghai, and recently mentioned Shanghai landmarks multiple times"}]
-  If determined to be a false contradiction:
-  [{"obs_index": 1, "action": "reject", "fact_id": 129, "reason": "Only mentioned Chengdu on a business trip, old value Beijing has been stable for 3 months with multiple confirmations"}]
-  If nothing needs to be processed, return []
-
 sleep.generate_strategies: |
   You will receive hypotheses that were newly created or changed this round.
   Task: Design natural verification strategies for hypotheses that need verification.
@@ -612,55 +582,6 @@ sleep.behavioral_pattern: |
   Output:
   [{"pattern_type": "geographic concentration", "category": "location", "subject": "residence", "inferred_value": "Shenzhen", "evidence_count": 3, "evidence_summary": "Mentioned Shenzhen's Xichong, Nanshan, and Dameisha in the last 3 sessions"}]
   If no patterns are found, return []
-
-sleep.sweep_uncovered: |
-  You will receive:
-  1. A batch of statement/contradiction type observations (facts stated by the user or content contradicting known information)
-  2. All current profile facts (with ID, category, subject, value, layer)
-
-  ═══ value format (most important! must follow!) ═══
-  value must be a short attribute value, not an observation description sentence.
-  Correct: value="Shenzhen", value="assistant architect", value="Tongji University", value="Suzhou"
-  Incorrect: value="User moved to Shenzhen", value="User's name is Yiming", value="Works as assistant architect at a design firm"
-
-  ═══ category + subject naming rules (important!) ═══
-  - Must reuse category and subject names from the existing profile
-  - The existing profile list is annotated with [id=X] [category] subject — use these names strictly
-  - If it's a completely new dimension (no existing profile match), use a short name (2-4 words)
-
-  Task: Find which observations are not covered by any profile entry and create profile entries for them.
-
-  Criteria for "already covered" (broad matching!):
-  - An existing profile's subject semantically corresponds to the observation ("residence city" covers "user moved to Hangzhou") → covered
-  - But if the existing profile value contradicts the observation content (profile says Shenzhen, observation says Hangzhou) → needs update!
-    In this case, don't create a new profile entry — instead output in contradictions format: {"fact_id": X, "new_value": "Hangzhou", "reason": "..."}
-  - No profile entry corresponds → uncovered, create new profile entry
-
-  Distinguishing the user vs. third parties (important!):
-  - Only create profile entries for the user's own information
-  - Don't create profile entries for friends'/colleagues'/family members'/partners' information
-  - The romantic partner themselves as a profile entry (category="relationship", subject="girlfriend", value="name")
-
-  Notes:
-  - Travel/business trip ≠ residence
-  - Plans/wishes ≠ facts — don't create profile entries for plans
-  - User directly stated → source_type="stated"; inferred → use "inferred"
-  - Don't store age as a static number: user says "I'm 22 this year" → subject="birth year", value="born approximately XXXX"
-
-  decay_days (expiry days, required):
-  - 3650: Core identity (name, gender, birth year, birthday) and background (hometown, school, major)
-  - 540: Life status (residence, occupation, company) and long-term hobbies/pets
-  - 365: Romantic relationships (boyfriend/girlfriend, marriage status)
-  - 120-180: Medium-term hobbies/interests
-  - 60: Short-term state
-  - 14-30: Temporary behavior/one-time activities
-
-  Output format:
-  {
-    "new_facts": [{"category":"relationship", "subject":"girlfriend", "value":"Lin Xiaoqing", "source_type":"stated", "decay_days": 365}],
-    "contradictions": [{"fact_id": 129, "category": "residence", "subject": "residence city", "new_value": "Hangzhou", "reason": "User explicitly said they moved to Hangzhou"}]
-  }
-  If nothing is uncovered, return {"new_facts": [], "contradictions": []}
 
 # ── tools ──────────────────────────────────────────────────────
 
@@ -957,9 +878,6 @@ context.labels:
   output_json_object: "Please output a JSON object (not an array):"
   dispute_action_hint: "accept_new or reject_new or keep"
   dispute_reason_hint: "Judgment reason"
-  sweep_traj_ref: "Trajectory Reference (helps judge if this is temporary travel/business trip behavior)"
-  sweep_current_phase: "Current Phase"
-  sweep_anchors_stable: "Anchors (stable)"
   strategy_behavioral_desc: "Behavioral pattern suggests {subj} might be {inferred}"
   strategy_topic_trigger: "When the user mentions topics related to {subj}"
   strategy_clarify_approach: "Naturally confirm: are you {inferred}?"

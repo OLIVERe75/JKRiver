@@ -412,36 +412,6 @@ sleep.create_hypotheses: |
 
   没有需要创建的返回 []
 
-sleep.cross_validate: |
-  你会收到矛盾信息，包含：
-  1. 老值及其时间区间（从什么时候开始、到什么时候被矛盾、期间被提及多少次）
-  2. 新述说及其开始时间
-  3. 该 subject 的历史时间线（如果有）
-  4. 该 subject 的相关历史观察（带时间戳）
-
-  任务：基于完整时间线，判断这个矛盾是真实变化还是误判。
-
-  判断标准：
-  - 用户直接陈述变化（"我搬到XX了""到XX入职""辞职了"）→ 真实变化，confirm_change
-  - 历史观察中有多条支持新值的时间线证据 → 真实变化
-  - 老值持续时间长、提及次数多，新值只出现一次且无佐证 → 需要谨慎
-  - 只是旅行/出差提到某地 → 不是变化，reject
-  - 怀旧/回忆提到旧事 → 不是变化，reject
-  - 第三方信息混淆（说的是别人）→ 不是变化，reject
-
-  交叉验证（重要）：
-  - 看历史观察的时间线，新值附近是否有佐证（如提到当地天气/地标/同事）
-  - 老值的时间区间内是否一直稳定
-  - 如果有历史变迁记录，是否符合变化趋势
-
-  new_value 必须是简短属性值（城市名/职位名），不是句子。
-
-  输出JSON数组：
-  [{"obs_index": 0, "action": "confirm_change", "fact_id": 129, "new_value": "上海", "reason": "用户明确说搬到上海，且近期多次提到上海地标"}]
-  判断为假矛盾的：
-  [{"obs_index": 1, "action": "reject", "fact_id": 129, "reason": "只是出差提到成都，老值北京持续3个月且多次确认"}]
-  没有需要处理的返回 []
-
 sleep.generate_strategies: |
   你会收到本轮新建或发生变更的假设。
   任务：为需要验证的假设设计自然的验证策略。
@@ -613,55 +583,6 @@ sleep.behavioral_pattern: |
   输出：
   [{"pattern_type": "地理集中", "category": "位置", "subject": "居住地", "inferred_value": "深圳", "evidence_count": 3, "evidence_summary": "近3个会话提到深圳的西涌、南山、大梅沙"}]
   没有发现模式返回 []
-
-sleep.sweep_uncovered: |
-  你会收到：
-  1. 一批 statement/contradiction 类观察（用户亲口说的事实或与已知信息矛盾的内容）
-  2. 当前所有画像事实（含 ID、category、subject、value、layer）
-
-  ═══ value 值格式（最重要！必须遵守！）═══
-  value 必须是简短的属性值，不是观察描述句子。
-  ✅ 正确：value="深圳", value="助理建筑师", value="同济大学", value="苏州"
-  ❌ 错误：value="用户搬到了深圳", value="用户叫赵一鸣", value="在设计院做助理建筑师"
-
-  ═══ category + subject 命名规则（重要！）═══
-  - 必须复用已有画像中的 category 和 subject 名称
-  - 已有画像列表中标注了 [id=X] [category] subject，请严格使用这些名称
-  - 如果是全新维度（没有已有画像匹配），使用简短中文名（2-4个字）
-
-  任务：找出哪些观察没有被任何画像覆盖，为它们创建画像。
-
-  判断"已覆盖"的标准（宽泛匹配！）：
-  - 已有画像的 subject 语义上对应到该观察（"居住城市"覆盖"用户搬到杭州"） → 已覆盖
-  - 但如果已有画像 value 和观察内容矛盾（画像是深圳，观察说杭州）→ 需要更新！
-    此时不创建新画像，而是输出 contradictions 格式：{"fact_id": X, "new_value": "杭州", "reason": "..."}
-  - 没有任何画像对应 → 未覆盖，创建新画像
-
-  区分用户本人 vs 第三方（重要！）：
-  - 只为用户本人的信息创建画像
-  - 朋友/同事/家人/伴侣的信息不创建画像
-  - 感情对象本身作为画像（category="感情", subject="女朋友", value="名字"）
-
-  注意：
-  - 旅行/出差 ≠ 居住地
-  - 计划/愿望 ≠ 事实，不要为计划创建画像
-  - 用户亲口说的 source_type="stated"，推理的用 "inferred"
-  - 年龄不要存静态数字：用户说"今年22" → subject="出生年", value="约XXXX年出生"
-
-  decay_days（过期天数，必填）：
-  - 3650：核心身份（姓名、性别、出生年、生日）和背景（家乡、学校、专业）
-  - 540：生活状态（居住地、职业、公司）和长期爱好/宠物
-  - 365：感情关系（男女朋友、婚姻状态）
-  - 120-180：中期爱好/兴趣
-  - 60：短期状态
-  - 14-30：临时行为/一次性活动
-
-  输出格式：
-  {
-    "new_facts": [{"category":"感情", "subject":"女朋友", "value":"林小晴", "source_type":"stated", "decay_days": 365}],
-    "contradictions": [{"fact_id": 129, "category": "居住地", "subject": "居住城市", "new_value": "杭州", "reason": "用户明确说搬到杭州了"}]
-  }
-  如果没有未覆盖的，返回 {"new_facts": [], "contradictions": []}
 
 # ── tools ──────────────────────────────────────────────────────
 
@@ -958,9 +879,6 @@ context.labels:
   output_json_object: "请输出一个JSON对象（不是数组）："
   dispute_action_hint: "accept_new或reject_new或keep"
   dispute_reason_hint: "判断理由"
-  sweep_traj_ref: "人物轨迹参考（帮助判断是否是旅行/出差等临时行为）"
-  sweep_current_phase: "当前阶段"
-  sweep_anchors_stable: "锚点（稳定）"
   strategy_behavioral_desc: "行为模式暗示{subj}可能是{inferred}"
   strategy_topic_trigger: "用户提到{subj}相关话题时"
   strategy_clarify_approach: "自然地确认：你是不是{inferred}？"
