@@ -128,6 +128,8 @@ class CognitionEngine:
         return result
 
     def analyze_trajectory(self, user_input: str, memories: dict) -> dict | None:
+        from agent.utils.profile_filter import prepare_profile
+
         profile = memories.get("profile", [])
         hypotheses = memories.get("hypotheses", [])
         user_model_data = memories.get("user_model", [])
@@ -153,15 +155,20 @@ class CognitionEngine:
 
         L = get_labels("context.labels", self.language)
 
+        # Use prepare_profile to limit profile entries
+        top_profile, _ = prepare_profile(
+            hypotheses, query_text=user_input, max_entries=15, language=self.language,
+        )
+
         known_parts = []
         if profile:
-            lines = [f"  [{p['category']}] {p['field']}: {p['value']}" for p in profile]
+            lines = [f"  [{p['category']}] {p['field']}: {p['value']}" for p in profile[:15]]
             known_parts.append(f"{L['confirmed_profile']}：\n" + "\n".join(lines))
-        if hypotheses:
-            trusted = [h for h in hypotheses
-                       if h.get("status") in ("active", "established", "confirmed")][:10]
+        if top_profile:
+            trusted = [h for h in top_profile
+                       if h.get("layer") in ("confirmed", "suspected")][:10]
             if trusted:
-                lines = [f"  [{h['category']}] {h['subject']}: {h['claim']} ({h.get('status', 'active')})"
+                lines = [f"  [{h['category']}] {h['subject']}: {h.get('value', '')} ({h.get('layer', 'suspected')})"
                          for h in trusted]
                 known_parts.append(f"{L['high_prob_hypotheses']}：\n" + "\n".join(lines))
         if user_model_data:
@@ -414,6 +421,8 @@ class CognitionEngine:
         return result
 
     async def analyze_trajectory_async(self, user_input: str, memories: dict) -> dict | None:
+        from agent.utils.profile_filter import prepare_profile
+
         profile = memories.get("profile", [])
         hypotheses = memories.get("hypotheses", [])
         user_model_data = memories.get("user_model", [])
@@ -439,15 +448,20 @@ class CognitionEngine:
 
         L = get_labels("context.labels", self.language)
 
+        # Use prepare_profile to limit profile entries
+        top_profile, _ = prepare_profile(
+            hypotheses, query_text=user_input, max_entries=15, language=self.language,
+        )
+
         known_parts = []
         if profile:
-            lines = [f"  [{p['category']}] {p['field']}: {p['value']}" for p in profile]
+            lines = [f"  [{p['category']}] {p['field']}: {p['value']}" for p in profile[:15]]
             known_parts.append(f"{L['confirmed_profile']}：\n" + "\n".join(lines))
-        if hypotheses:
-            trusted = [h for h in hypotheses
-                       if h.get("status") in ("active", "established", "confirmed")][:10]
+        if top_profile:
+            trusted = [h for h in top_profile
+                       if h.get("layer") in ("confirmed", "suspected")][:10]
             if trusted:
-                lines = [f"  [{h['category']}] {h['subject']}: {h['claim']} ({h.get('status', 'active')})"
+                lines = [f"  [{h['category']}] {h['subject']}: {h.get('value', '')} ({h.get('layer', 'suspected')})"
                          for h in trusted]
                 known_parts.append(f"{L['high_prob_hypotheses']}：\n" + "\n".join(lines))
         if user_model_data:

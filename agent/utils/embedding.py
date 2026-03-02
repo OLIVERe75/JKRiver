@@ -54,7 +54,8 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 def vector_search(query_text: str, config: dict,
-                  top_k: int = 5, min_score: float = 0.40) -> list[dict]:
+                  top_k: int = 5, min_score: float = 0.40,
+                  source_tables: list[str] | None = None) -> list[dict]:
     emb_cfg = config.get("embedding", {})
     model = emb_cfg.get("model", "")
     api_base = emb_cfg.get("api_base", "")
@@ -81,6 +82,8 @@ def vector_search(query_text: str, config: dict,
 
     scored = []
     for row in rows:
+        if source_tables and row["source_table"] not in source_tables:
+            continue
         emb = row["embedding"]
         if isinstance(emb, str):
             import json

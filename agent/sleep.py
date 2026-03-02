@@ -26,7 +26,9 @@ from agent.storage import (
     save_trajectory_summary, load_trajectory_summary,
     load_active_events,
     save_or_update_relationship, load_relationships,
+    save_memory_snapshot,
 )
+from agent.utils.profile_filter import prepare_profile, format_profile_text
 
 def _format_trajectory_block(trajectory: dict | None, language: str = "zh") -> str:
     L = get_labels("context.labels", language)
@@ -94,6 +96,31 @@ def _format_profile_for_llm(profile: list[dict], timeline: list[dict] | None = N
                         f"({start} ~ {end})\n"
                     )
     return text
+
+def _consolidate_profile():
+    """合并同 category+subject 的冗余条目，保留最新的"""
+    from collections import defaultdict
+
+    all_profile = load_full_current_profile()
+    groups = defaultdict(list)
+    for p in all_profile:
+        groups[(p["category"], p["subject"])].append(p)
+
+    for (cat, subj), entries in groups.items():
+        if len(entries) <= 1:
+            continue
+        entries.sort(key=lambda x: x.get("updated_at") or x.get("created_at"), reverse=True)
+        keeper = entries[0]
+        for old in entries[1:]:
+            if old["id"] == keeper["id"]:
+                continue
+            if old.get("superseded_by") or old.get("end_time"):
+                continue
+            old_evidence = old.get("evidence", [])
+            if old_evidence and isinstance(old_evidence, list):
+                add_evidence(keeper["id"], {"merged_from": old["id"]})
+            close_time_period(old["id"])
+
 
 _MATURITY_TIERS = [
     (730, 10, 730),
@@ -773,7 +800,7 @@ def generate_trajectory_summary(current_profile: list[dict],
     else:
         new_obs_text = f"{L['no_new_obs']}\n"
 
-    historical_obs = load_observations(limit=200)
+    historical_obs = load_observations(limit=80)
     hist_obs_text = ""
     if historical_obs:
         for o in historical_obs:
@@ -1527,7 +1554,7 @@ async def generate_trajectory_summary_async(current_profile: list[dict],
     else:
         new_obs_text = f"{L['no_new_obs']}\n"
 
-    historical_obs = load_observations(limit=200)
+    historical_obs = load_observations(limit=80)
     hist_obs_text = ""
     if historical_obs:
         for o in historical_obs:
@@ -1604,8 +1631,9 @@ def run():
         all_msg_ids.extend(msg_ids)
         all_convs.extend(convs)
 
+        extract_profile, _ = prepare_profile(existing_profile, max_entries=25, language=language)
         result = extract_observations_and_tags(convs, config,
-                                               existing_profile=existing_profile)
+                                               existing_profile=extract_profile)
         observations_raw = result.get("observations", [])
         tags = result.get("tags", [])
         relationships = result.get("relationships", [])
@@ -1674,11 +1702,16 @@ def run():
                        reference_time=session_time)
             status = f", 状态:{e['status']}" if e.get("status") else ""
 
+    obs_query = " ".join(o.get("subject", "") for o in all_observations if o.get("subject"))
+
     behavioral_signals = []
     if all_observations and len(all_observations) >= 1:
         current_profile = load_full_current_profile()
+        behavioral_profile, _ = prepare_profile(
+            current_profile, query_text=obs_query, max_entries=20, language=language,
+        )
         behavioral_signals = analyze_behavioral_patterns(
-            all_observations, current_profile, trajectory, config
+            all_observations, behavioral_profile, trajectory, config
         )
         if behavioral_signals:
             _obs_times = [o.get("_conv_time") for o in all_observations if o.get("_conv_time")]
@@ -1737,9 +1770,33 @@ def run():
         _all_conv_times = [c["user_input_at"] for c in all_convs if c.get("user_input_at")]
     latest_conv_time = max(_all_conv_times) if _all_conv_times else None
 
+    changed_items = []
+    new_fact_count = 0
+
     if all_observations:
+        # Dynamic range for classify_observations
+        obs_subjects = set(o.get("subject", "") for o in all_observations if o.get("subject"))
+        obs_categories = set(o.get("_category", "") or "" for o in all_observations)
+        has_contradictions = any(o.get("type") == "contradiction" for o in all_observations)
+
+        if has_contradictions:
+            classify_profile = current_profile
+        elif len(obs_subjects) <= 3:
+            three_months_ago = get_now() - timedelta(days=90)
+            classify_profile = [
+                p for p in current_profile
+                if p.get("subject") in obs_subjects
+                or p.get("category") in obs_categories
+                or (p.get("updated_at") and p["updated_at"] >= three_months_ago)
+            ]
+        else:
+            classify_profile, _ = prepare_profile(
+                current_profile, query_text=obs_query, config=config, max_entries=80,
+                language=language,
+            )
+
         classifications = classify_observations(
-            all_observations, current_profile, config, timeline,
+            all_observations, classify_profile, config, timeline,
             trajectory=trajectory
         )
 
@@ -1786,7 +1843,6 @@ def run():
                              reference_time=_ea_time)
 
         new_fact_count = 0
-        changed_items = []
         if new_obs_cls:
             new_obs_data = []
             for c in new_obs_cls:
@@ -1797,8 +1853,12 @@ def run():
             if new_obs_data:
                 _new_obs_times = [o.get("_conv_time") for o in new_obs_data if o.get("_conv_time")]
                 _new_batch_time = max(_new_obs_times) if _new_obs_times else None
+                create_profile, _ = prepare_profile(
+                    current_profile, query_text=obs_query, max_entries=15,
+                    language=language,
+                )
                 new_facts = create_new_facts(
-                    new_obs_data, current_profile, config, behavioral_signals,
+                    new_obs_data, create_profile, config, behavioral_signals,
                     trajectory=trajectory
                 )
                 for nf in new_facts:
@@ -1873,8 +1933,16 @@ def run():
 
         strategy_count = 0
         if changed_items:
+            strategy_query = " ".join(
+                f"{item.get('category', '')} {item.get('subject', '')}"
+                for item in changed_items
+            )
+            strategy_profile, _ = prepare_profile(
+                current_profile, query_text=strategy_query, max_entries=15,
+                language=language,
+            )
             strategies = generate_strategies(changed_items, config,
-                                            current_profile=current_profile,
+                                            current_profile=strategy_profile,
                                             trajectory=trajectory)
             for s in strategies:
                 cat = s.get("category")
@@ -1999,8 +2067,12 @@ def run():
 
     if all_convs:
         current_profile_for_model = load_full_current_profile()
+        model_profile, _ = prepare_profile(
+            current_profile_for_model, query_text=obs_query, max_entries=20,
+            language=language,
+        )
         model_results = analyze_user_model(all_convs, config,
-                                           current_profile=current_profile_for_model)
+                                           current_profile=model_profile)
         for m in model_results:
             upsert_user_model(
                 dimension=m["dimension"],
@@ -2022,7 +2094,22 @@ def run():
     prev_session_count = trajectory.get("session_count", 0) if trajectory else 0
     sessions_since_update = total_sessions - prev_session_count
 
-    if sessions_since_update >= 3:
+    has_significant_change = (
+        confirmed_count > 0
+        or dispute_resolved > 0
+        or any(o.get("type") == "contradiction" for o in all_observations)
+        or any(
+            item.get("category", "").lower() in (
+                "职业", "career", "家庭", "family", "居住", "住所",
+                "education", "教育", "健康", "health", "location",
+            )
+            for item in changed_items
+        )
+    )
+
+    if has_significant_change and sessions_since_update >= 2:
+        should_update_trajectory = True
+    elif sessions_since_update >= 10:
         should_update_trajectory = True
 
     if not trajectory:
@@ -2048,6 +2135,36 @@ def run():
     else:
         pass
 
+    # Profile dedup consolidation (only when new facts created or disputes resolved)
+    if new_fact_count > 0 or dispute_resolved > 0:
+        _consolidate_profile()
+
+    # Generate memory snapshot
+    try:
+        final_profile = load_full_current_profile()
+        snapshot_text = format_profile_text(
+            final_profile, max_entries=40, detail="full", language=language,
+        )
+
+        user_model = load_user_model()
+        if user_model:
+            model_lines = [f"  {m['dimension']}: {m['assessment']}" for m in user_model]
+            snapshot_text += f"\n\n{L['section_user_traits']}\n" + "\n".join(model_lines)
+
+        snapshot_events = load_active_events(top_k=5)
+        if snapshot_events:
+            event_lines = [f"  [{e['category']}] {e['summary']}" for e in snapshot_events]
+            snapshot_text += f"\n\n{L['section_events']}\n" + "\n".join(event_lines)
+
+        snapshot_relationships = load_relationships()
+        if snapshot_relationships:
+            rel_lines = [f"  {r['relation']}: {r.get('name', '?')}" for r in snapshot_relationships[:10]]
+            snapshot_text += f"\n\n{L['section_relationships']}\n" + "\n".join(rel_lines)
+
+        save_memory_snapshot(snapshot_text, profile_count=len(final_profile))
+    except Exception:
+        pass
+
     mark_processed(all_msg_ids)
 
     try:
@@ -2055,13 +2172,6 @@ def run():
         embed_all_memories(config)
     except Exception as e:
         pass
-
-    final_profile = load_full_current_profile()
-    if final_profile:
-        for p in final_profile:
-            layer = p.get("layer", "suspected")
-            mc = p.get("mention_count", 1) or 1
-            layer_tag = L["layer_core"] if layer == "confirmed" else L["layer_suspected"]
 
 async def run_async():
     config = load_config()
@@ -2094,8 +2204,9 @@ async def run_async():
         all_convs.extend(convs)
 
         # Round A: extract observations and events in parallel
+        extract_profile, _ = prepare_profile(existing_profile, max_entries=25, language=language)
         obs_task = extract_observations_and_tags_async(convs, config,
-                                                       existing_profile=existing_profile)
+                                                       existing_profile=extract_profile)
         events_task = extract_events_async(convs, config)
         result, events = await asyncio.gather(obs_task, events_task)
 
@@ -2165,6 +2276,8 @@ async def run_async():
     # behavioral_patterns, cross_verify_suspected, resolve_disputes, maturity_decay
     # These all read from DB but don't depend on each other's output.
 
+    obs_query = " ".join(o.get("subject", "") for o in all_observations if o.get("subject"))
+
     suspected_facts = await asyncio.to_thread(load_suspected_profile)
     disputed_pairs = await asyncio.to_thread(load_disputed_facts)
     current_profile = await asyncio.to_thread(load_full_current_profile)
@@ -2172,8 +2285,12 @@ async def run_async():
 
     async def _do_behavioral():
         if all_observations and len(all_observations) >= 1:
+            behavioral_profile, _ = prepare_profile(
+                current_profile, query_text=obs_query, max_entries=20,
+                language=language,
+            )
             return await analyze_behavioral_patterns_async(
-                all_observations, current_profile, trajectory, config
+                all_observations, behavioral_profile, trajectory, config
             )
         return []
 
@@ -2318,10 +2435,32 @@ async def run_async():
         return None
 
     changed_items = []
+    new_fact_count = 0
 
     if all_observations:
+        # Dynamic range for classify_observations
+        obs_subjects = set(o.get("subject", "") for o in all_observations if o.get("subject"))
+        obs_categories = set(o.get("_category", "") or "" for o in all_observations)
+        has_contradictions = any(o.get("type") == "contradiction" for o in all_observations)
+
+        if has_contradictions:
+            classify_profile = current_profile
+        elif len(obs_subjects) <= 3:
+            three_months_ago = get_now() - timedelta(days=90)
+            classify_profile = [
+                p for p in current_profile
+                if p.get("subject") in obs_subjects
+                or p.get("category") in obs_categories
+                or (p.get("updated_at") and p["updated_at"] >= three_months_ago)
+            ]
+        else:
+            classify_profile, _ = prepare_profile(
+                current_profile, query_text=obs_query, config=config, max_entries=80,
+                language=language,
+            )
+
         classifications = await classify_observations_async(
-            all_observations, current_profile, config, timeline,
+            all_observations, classify_profile, config, timeline,
             trajectory=trajectory
         )
 
@@ -2365,7 +2504,6 @@ async def run_async():
                              reference_time=_ea_time)
 
         # ── Round 3: create_new_facts (depends on classifications) ──
-        new_fact_count = 0
         if new_obs_cls:
             new_obs_data = []
             for c in new_obs_cls:
@@ -2376,8 +2514,12 @@ async def run_async():
             if new_obs_data:
                 _new_obs_times = [o.get("_conv_time") for o in new_obs_data if o.get("_conv_time")]
                 _new_batch_time = max(_new_obs_times) if _new_obs_times else None
+                create_profile, _ = prepare_profile(
+                    current_profile, query_text=obs_query, max_entries=15,
+                    language=language,
+                )
                 new_facts = await create_new_facts_async(
-                    new_obs_data, current_profile, config, behavioral_signals,
+                    new_obs_data, create_profile, config, behavioral_signals,
                     trajectory=trajectory
                 )
                 for nf in new_facts:
@@ -2452,8 +2594,16 @@ async def run_async():
 
         # ── Round 4: generate_strategies (depends on changed_items) ──
         if changed_items:
+            strategy_query = " ".join(
+                f"{item.get('category', '')} {item.get('subject', '')}"
+                for item in changed_items
+            )
+            strategy_profile, _ = prepare_profile(
+                current_profile, query_text=strategy_query, max_entries=15,
+                language=language,
+            )
             strategies = await generate_strategies_async(changed_items, config,
-                                                        current_profile=current_profile,
+                                                        current_profile=strategy_profile,
                                                         trajectory=trajectory)
             for s in strategies:
                 cat = s.get("category")
@@ -2477,8 +2627,12 @@ async def run_async():
     async def _do_user_model():
         if all_convs:
             profile_for_model = await asyncio.to_thread(load_full_current_profile)
+            model_profile, _ = prepare_profile(
+                profile_for_model, query_text=obs_query, max_entries=20,
+                language=language,
+            )
             return await analyze_user_model_async(all_convs, config,
-                                                  current_profile=profile_for_model)
+                                                  current_profile=model_profile)
         return []
 
     async def _do_trajectory():
@@ -2494,7 +2648,22 @@ async def run_async():
         prev_session_count = trajectory.get("session_count", 0) if trajectory else 0
         sessions_since_update = total_sessions - prev_session_count
 
-        if sessions_since_update >= 3:
+        has_significant_change = (
+            confirmed_count > 0
+            or dispute_resolved > 0
+            or any(o.get("type") == "contradiction" for o in all_observations)
+            or any(
+                item.get("category", "").lower() in (
+                    "职业", "career", "家庭", "family", "居住", "住所",
+                    "education", "教育", "健康", "health", "location",
+                )
+                for item in changed_items
+            )
+        )
+
+        if has_significant_change and sessions_since_update >= 2:
+            should_update = True
+        elif sessions_since_update >= 10:
             should_update = True
         if not trajectory:
             cp = await asyncio.to_thread(load_full_current_profile)
@@ -2529,6 +2698,36 @@ async def run_async():
             save_trajectory_summary(traj_result, session_count=total_sessions)
         except Exception:
             pass
+
+    # Profile dedup consolidation (only when new facts created or disputes resolved)
+    if new_fact_count > 0 or dispute_resolved > 0:
+        await asyncio.to_thread(_consolidate_profile)
+
+    # Generate memory snapshot
+    try:
+        final_profile = await asyncio.to_thread(load_full_current_profile)
+        snapshot_text = format_profile_text(
+            final_profile, max_entries=40, detail="full", language=language,
+        )
+
+        user_model = await asyncio.to_thread(load_user_model)
+        if user_model:
+            model_lines = [f"  {m['dimension']}: {m['assessment']}" for m in user_model]
+            snapshot_text += f"\n\n{L['section_user_traits']}\n" + "\n".join(model_lines)
+
+        snapshot_events = await asyncio.to_thread(load_active_events, 5)
+        if snapshot_events:
+            event_lines = [f"  [{e['category']}] {e['summary']}" for e in snapshot_events]
+            snapshot_text += f"\n\n{L['section_events']}\n" + "\n".join(event_lines)
+
+        snapshot_relationships = await asyncio.to_thread(load_relationships)
+        if snapshot_relationships:
+            rel_lines = [f"  {r['relation']}: {r.get('name', '?')}" for r in snapshot_relationships[:10]]
+            snapshot_text += f"\n\n{L['section_relationships']}\n" + "\n".join(rel_lines)
+
+        await asyncio.to_thread(save_memory_snapshot, snapshot_text, len(final_profile))
+    except Exception:
+        pass
 
     # Mark all messages as processed
     mark_processed(all_msg_ids)

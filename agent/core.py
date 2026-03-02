@@ -14,7 +14,9 @@ from agent.storage import (
     load_user_model, load_active_events,
     load_trajectory_summary,
     load_relationships,
+    load_memory_snapshot,
 )
+from agent.utils.profile_filter import format_profile_text
 from agent.tools import ToolRegistry
 from agent.tools.preprocess import preprocess_input
 from agent.tools._resolver import resolve_tools, resolve_tools_async
@@ -76,13 +78,14 @@ def build_memory_context(perception: dict,
 
     if category == "chat":
         memory_parts = []
+        query_text = perception.get("ai_summary", "")
         if full_profile:
-            profile_lines = []
-            for p in full_profile:
-                layer = p.get("layer", "suspected")
-                tag = L["layer_core"] if layer == "confirmed" else L["layer_suspected"]
-                profile_lines.append(f"  {tag} [{p['category']}] {p['subject']}: {p['value']}")
-            memory_parts.append(L["section_profile"] + "\n" + "\n".join(profile_lines))
+            profile_text = format_profile_text(
+                full_profile, keywords=query_text, config=config,
+                max_entries=30, detail="full", language=language,
+            )
+            if profile_text:
+                memory_parts.append(L["section_profile"] + "\n" + profile_text)
         if user_model_data:
             model_lines = [f"  {m['dimension']}: {m['assessment']}" for m in user_model_data]
             memory_parts.append(L["section_user_traits"] + "\n" + "\n".join(model_lines))
@@ -115,19 +118,18 @@ def build_memory_context(perception: dict,
 
     memory_parts = []
 
-    profile_lines = []
-    for p in full_profile:
-        layer = p.get("layer", "suspected")
-        if p.get("superseded_by"):
-            tag = L["layer_disputed"]
-        elif layer == "confirmed":
-            tag = L["layer_core"]
-        else:
-            tag = L["layer_suspected"]
-        profile_lines.append(f"  {tag} [{p['category']}] {p['subject']}: {p['value']}")
-
-    if profile_lines:
-        memory_parts.append(L["section_profile"] + "\n" + "\n".join(profile_lines))
+    # Try pre-compiled snapshot first, fallback to real-time build
+    snapshot = load_memory_snapshot()
+    query_text = perception.get("ai_summary", "")
+    if snapshot and snapshot.get("snapshot_text"):
+        memory_parts.append(L["section_profile"] + "\n" + snapshot["snapshot_text"])
+    else:
+        profile_text = format_profile_text(
+            full_profile, keywords=query_text, config=config,
+            max_entries=30, detail="full", language=language,
+        )
+        if profile_text:
+            memory_parts.append(L["section_profile"] + "\n" + profile_text)
 
     timeline = load_timeline()
     changed_keys = set()
@@ -169,6 +171,11 @@ def build_memory_context(perception: dict,
         )
 
     if relationships_data:
+        relationships_data = sorted(
+            relationships_data,
+            key=lambda r: r.get("mention_count", 0),
+            reverse=True,
+        )[:10]
         rel_lines = []
         for r in relationships_data:
             details = r.get("details", {})

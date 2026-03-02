@@ -418,4 +418,11 @@ CREATE TABLE IF NOT EXISTS memory_embeddings (
     UNIQUE(source_table, source_id)
 );
 
+CREATE TABLE IF NOT EXISTS memory_snapshot (
+    id SERIAL PRIMARY KEY,
+    snapshot_text TEXT NOT NULL,
+    profile_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 COMMIT;

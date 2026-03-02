@@ -2533,3 +2533,45 @@ def get_health_overview() -> dict:
             }
     finally:
         conn.close()
+
+
+def save_memory_snapshot(text: str, profile_count: int = 0):
+    """保存预编译的记忆快照"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "CREATE TABLE IF NOT EXISTS memory_snapshot ("
+                "  id SERIAL PRIMARY KEY,"
+                "  snapshot_text TEXT NOT NULL,"
+                "  profile_count INTEGER DEFAULT 0,"
+                "  created_at TIMESTAMPTZ DEFAULT NOW()"
+                ")"
+            )
+            cur.execute(
+                "INSERT INTO memory_snapshot (snapshot_text, profile_count) "
+                "VALUES (%s, %s)",
+                (text, profile_count),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_memory_snapshot() -> dict | None:
+    """加载最新快照，返回 {"snapshot_text": str, "profile_count": int, "created_at": datetime}"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            try:
+                cur.execute(
+                    "SELECT snapshot_text, profile_count, created_at "
+                    "FROM memory_snapshot ORDER BY id DESC LIMIT 1"
+                )
+            except Exception:
+                conn.rollback()
+                return None
+            row = cur.fetchone()
+            return dict(row) if row else None
+    finally:
+        conn.close()
