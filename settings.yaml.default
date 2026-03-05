@@ -8,7 +8,7 @@
 # ─── 语言 | Language | 言語 ─────────────────────────────────
 #  界面和 AI 回复的语言 | Language for UI and AI responses | UIとAI応答の言語
 #  zh = 中文 | en = English | ja = 日本語
-language: "zh"
+language: "en"
 
 
 # ─── 数据库 | Database | データベース ────────────────────────
@@ -96,7 +96,7 @@ tools:
     # 音声→テキスト変換（Telegram/Discord 音声メッセージ用）
     voice_transcribe:
         model: "whisper-1"              # OpenAI Whisper 模型 | OpenAI Whisper model | OpenAI Whisper モデル
-        language: "zh"                  # 语音语言 | Voice language | 音声の言語
+        language: "en"                  # 语音语言 | Voice language | 音声の言語
 
     # 图像识别（AI 看图说话）
     # Image understanding (AI describes images)
