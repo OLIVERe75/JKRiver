@@ -836,6 +836,7 @@ context.labels:
   first_analysis: "（まだなし、初回分析）"
   user_profile_background: "ユーザープロフィール（参考、ユーザー背景の理解に役立つ）"
   current_profile_label: "現在のプロフィール"
+  new_observations_to_classify: "分類する新しい観察"
   recent_obs: "最近の観察"
   output_json_array: "⚠️ JSON配列を直接出力してください。分析テキストは不要です。"
   fact_id: "事実 ID"

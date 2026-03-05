@@ -6,3 +6,5 @@ tmp/
 batch_test*.py
 .venv/
 .DS_Store
+settings.yaml
+pg_env.bat

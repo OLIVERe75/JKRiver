@@ -14,8 +14,26 @@ def _print_cycle_details(result: dict, CL: dict):
     if reply:
         print(reply)
 
+def _check_llm_reachable(config: dict):
+    """Warn if the configured LLM backend is not reachable."""
+    import requests
+    llm = config.get("llm", {})
+    api_base = llm.get("api_base", "")
+    if not api_base:
+        return
+    try:
+        requests.get(api_base, timeout=5)
+    except Exception:
+        provider = config.get("llm_provider", "local")
+        if provider == "local":
+            print(f"⚠ Cannot reach Ollama at {api_base}")
+            print("  Please run 'ollama start' first, then try again.")
+        else:
+            print(f"⚠ Cannot reach LLM API at {api_base}")
+
 async def main_async():
     config = load_config()
+    _check_llm_reachable(config)
     CL = get_labels("cli.labels", config.get("language", "zh"))
     manager = SessionManager(config)
     session = manager.get_or_create()

@@ -1,5 +1,6 @@
 
 import json
+import logging
 import re
 from datetime import datetime, timedelta
 from agent.config import load_config
@@ -30,6 +31,8 @@ from agent.storage import (
     save_fact_edge, load_fact_edges, delete_fact_edges_for,
 )
 from agent.utils.profile_filter import prepare_profile, format_profile_text
+
+logger = logging.getLogger(__name__)
 
 def _format_trajectory_block(trajectory: dict | None, language: str = "zh") -> str:
     L = get_labels("context.labels", language)
@@ -1965,7 +1968,7 @@ def run():
                             reference_time=_earliest_time,
                         )
                     except Exception:
-                        pass
+                        logger.warning("Save clarify strategy failed", exc_info=True)
         else:
             pass
 
@@ -2003,7 +2006,7 @@ def run():
                 p for p in current_profile
                 if p.get("subject") in obs_subjects
                 or p.get("category") in obs_categories
-                or (p.get("updated_at") and p["updated_at"] >= three_months_ago)
+                or (p.get("updated_at") and p["updated_at"].replace(tzinfo=None) >= three_months_ago)
             ]
         else:
             classify_profile, _ = prepare_profile(
@@ -2195,7 +2198,7 @@ def run():
                     )
                     strategy_count += 1
                 except Exception as e:
-                    pass
+                    logger.warning("Save strategy failed: %s", e)
 
     else:
         pass
@@ -2256,7 +2259,7 @@ def run():
             edge_profile = load_full_current_profile()
             extract_fact_edges(affected_fact_ids, edge_profile, config)
         except Exception:
-            pass
+            logger.warning("Extract fact edges failed", exc_info=True)
 
     expired_facts = get_expired_facts(reference_time=latest_conv_time)
     stale_count = 0
@@ -2282,7 +2285,7 @@ def run():
                     reference_time=latest_conv_time,
                 )
             except Exception:
-                pass
+                logger.warning("Save expired-fact strategy failed", exc_info=True)
             stale_count += 1
 
     else:
@@ -2381,7 +2384,7 @@ def run():
                 try:
                     save_trajectory_summary(trajectory_result, session_count=total_sessions)
                 except Exception as e:
-                    pass
+                    logger.warning("Save trajectory failed: %s", e)
             else:
                 pass
         else:
@@ -2430,7 +2433,7 @@ def run():
 
         save_memory_snapshot(snapshot_text, profile_count=len(final_profile))
     except Exception:
-        pass
+        logger.warning("Save memory snapshot failed", exc_info=True)
 
     mark_processed(all_msg_ids)
 
@@ -2438,13 +2441,13 @@ def run():
         from agent.utils.embedding import embed_all_memories
         embed_all_memories(config)
     except Exception as e:
-        pass
+        logger.warning("Embedding failed (non-critical): %s", e)
 
     try:
         from agent.utils.clustering import cluster_memories
         cluster_memories(config)
     except Exception:
-        pass
+        logger.warning("Clustering failed (non-critical)", exc_info=True)
 
 async def run_async():
     config = load_config()
@@ -2607,7 +2610,7 @@ async def run_async():
                         reference_time=_earliest_time,
                     )
                 except Exception:
-                    pass
+                    logger.warning("Save clarify strategy failed (async)", exc_info=True)
 
     # cross_verify / resolve_disputes
     _all_conv_times = [o["_conv_time"] for o in all_observations if o.get("_conv_time")]
@@ -2708,7 +2711,7 @@ async def run_async():
                     reference_time=latest_conv_time,
                 )
             except Exception:
-                pass
+                logger.warning("Save expired-fact strategy failed (async)", exc_info=True)
 
     # ── Round 2: classify_observations (needs observations + profile) ──
     current_profile = await asyncio.to_thread(load_full_current_profile, True)
@@ -2741,7 +2744,7 @@ async def run_async():
                 p for p in current_profile
                 if p.get("subject") in obs_subjects
                 or p.get("category") in obs_categories
-                or (p.get("updated_at") and p["updated_at"] >= three_months_ago)
+                or (p.get("updated_at") and p["updated_at"].replace(tzinfo=None) >= three_months_ago)
             ]
         else:
             classify_profile, _ = prepare_profile(
@@ -2929,7 +2932,7 @@ async def run_async():
                         reference_time=latest_conv_time,
                     )
                 except Exception:
-                    pass
+                    logger.warning("Save strategy failed (async)", exc_info=True)
 
     # ── Round 5: user_model + trajectory in PARALLEL ──
     async def _do_user_model():
@@ -3006,7 +3009,7 @@ async def run_async():
         try:
             save_trajectory_summary(traj_result, session_count=total_sessions)
         except Exception:
-            pass
+            logger.warning("Save trajectory failed (async)", exc_info=True)
 
     # Extract fact edges (knowledge network)
     if affected_fact_ids:
@@ -3014,7 +3017,7 @@ async def run_async():
             edge_profile = await asyncio.to_thread(load_full_current_profile)
             await extract_fact_edges_async(affected_fact_ids, edge_profile, config)
         except Exception:
-            pass
+            logger.warning("Extract fact edges failed (async)", exc_info=True)
 
     # Profile dedup consolidation (only when new facts created or disputes resolved)
     if new_fact_count > 0 or dispute_resolved > 0:
@@ -3058,7 +3061,7 @@ async def run_async():
 
         await asyncio.to_thread(save_memory_snapshot, snapshot_text, len(final_profile))
     except Exception:
-        pass
+        logger.warning("Save memory snapshot failed (async)", exc_info=True)
 
     # Mark all messages as processed
     mark_processed(all_msg_ids)
@@ -3068,13 +3071,13 @@ async def run_async():
         from agent.utils.embedding import embed_all_memories
         await asyncio.to_thread(embed_all_memories, config)
     except Exception:
-        pass
+        logger.warning("Embedding failed (non-critical, async)", exc_info=True)
 
     try:
         from agent.utils.clustering import cluster_memories
         await asyncio.to_thread(cluster_memories, config)
     except Exception:
-        pass
+        logger.warning("Clustering failed (non-critical, async)", exc_info=True)
 
 
 if __name__ == "__main__":

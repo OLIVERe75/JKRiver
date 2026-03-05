@@ -837,6 +837,7 @@ context.labels:
   first_analysis: "（暂无，这是首次分析）"
   user_profile_background: "用户画像（参考，帮助理解用户背景）"
   current_profile_label: "当前画像"
+  new_observations_to_classify: "本次新观察"
   recent_obs: "近期观察"
   output_json_array: "⚠️ 请直接输出JSON数组，不要输出分析文字。"
   fact_id: "事实 ID"

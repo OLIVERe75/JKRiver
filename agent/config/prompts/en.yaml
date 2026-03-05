@@ -836,6 +836,7 @@ context.labels:
   first_analysis: "(none yet, this is the first analysis)"
   user_profile_background: "User Profile (reference, helps understand user background)"
   current_profile_label: "Current Profile"
+  new_observations_to_classify: "New Observations to Classify"
   recent_obs: "Recent Observations"
   output_json_array: "⚠️ Please output a JSON array directly, without analysis text."
   fact_id: "Fact ID"
