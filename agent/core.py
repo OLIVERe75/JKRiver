@@ -292,6 +292,197 @@ def build_memory_context(perception: dict,
         "memory_text": memory_text,
     }
 
+def _build_trajectory_block(trajectory: dict, L: dict) -> str:
+    """Build trajectory divergence block for memory context."""
+    block = L["section_trajectory_divergence"] + "\n"
+    block += f"  {L['judgment']}: {trajectory.get('trajectory', '?')} — {trajectory.get('reasoning', '')}\n"
+    causes = trajectory.get("possible_causes", [])
+    if causes:
+        block += f"  {L['possible_causes_label']}: {', '.join(causes)}\n"
+    if trajectory.get("real_need"):
+        block += f"  {L['real_need_guess']}: {trajectory['real_need']}\n"
+    block += f"  {L['immediate_strategy_text']}\n"
+    is_temp = trajectory.get("is_temporary", True)
+    block += f"  {L['persistence_label']}: {L['persistence_temp'] if is_temp else L['persistence_lasting']}"
+    return block
+
+
+def _inject_tool_context(tool_results: list[dict], memories: dict, llm_input: str,
+                         L: dict, log_fn) -> str:
+    """Inject tool results into memory context, handle image placeholders. Returns updated llm_input."""
+    if not tool_results:
+        return llm_input
+    _tool_labels = {
+        "image_describe": L["tool_label_image"],
+        "web_search": L["tool_label_web_search"],
+        "voice_transcribe": L["tool_label_voice"],
+        "finance_query": L["tool_label_finance"],
+        "health_query": L["tool_label_health"],
+    }
+    tool_context = "\n\n".join(
+        f"【{_tool_labels.get(t['tool'], t['tool'])}】\n{t['result'].data}"
+        for t in tool_results if t["result"].success
+    )
+    if tool_context:
+        if memories["memory_text"]:
+            memories["memory_text"] += "\n\n" + tool_context
+        else:
+            memories["memory_text"] = tool_context
+        if log_fn:
+            log_fn("info", f"工具结果已注入上下文 ({len(tool_results)} 个工具)")
+
+    for t in tool_results:
+        if t["tool"] == "image_describe" and t["result"].success:
+            placeholder = L["image_placeholder"]
+            clean_input = llm_input.replace(placeholder + " ", "").replace(placeholder, "").strip()
+            llm_input = L["image_recognized_prefix"] + clean_input
+    return llm_input
+
+
+def _handle_skills(processed_text: str, session, memories: dict, L: dict, log_fn):
+    """Handle skill creation, deletion, and matching."""
+    language = session.full_config.get("language", "zh")
+    if not session.full_config.get("skills", {}).get("enabled", True):
+        return
+
+    skill_action = detect_skill_request(processed_text, language=language)
+    if skill_action == "create":
+        result = create_skill_from_chat(
+            processed_text, session.cognition.config,
+            session.tool_registry.list_available(),
+            language=language,
+        )
+        if result["success"]:
+            session.skill_registry.reload()
+            inject = (f"\n\n{L['skill_created_header']}\n{L['skill_name_label']}: {result['skill_name']}\n"
+                      f"{L['skill_desc_label']}: {result['description']}\n{result['message']}")
+        else:
+            inject = f"\n\n{L['skill_create_failed_header']}\n{result['message']}"
+        memories["memory_text"] += inject
+        if log_fn:
+            log_fn("info", f"技能创建: {result}")
+    elif skill_action == "delete":
+        skill_name = extract_skill_name(processed_text, language=language)
+        if skill_name:
+            deleted = delete_skill(skill_name)
+            if deleted:
+                session.skill_registry.reload()
+                inject = f"\n\n{L['skill_deleted_header']}\n{L['skill_deleted_label']}: {skill_name}"
+            else:
+                inject = f"\n\n{L['skill_delete_failed_header']}\n{L['skill_not_found']}: {skill_name}"
+        else:
+            inject = f"\n\n{L['skill_delete_failed_header']}\n{L['skill_delete_no_name']}"
+        memories["memory_text"] += inject
+        if log_fn:
+            log_fn("info", f"技能删除: skill_name={skill_name}")
+
+    matched_skills = session.skill_registry.match_keywords(processed_text)
+    for skill in matched_skills:
+        try:
+            if skill.is_simple:
+                inject = f"\n\n{L['skill_guide_header'].format(description=skill.description)}\n{skill.instruction}"
+            else:
+                result = execute_skill(
+                    skill, session.tool_registry,
+                    session.cognition.config, session.full_config,
+                )
+                inject = f"\n\n【{skill.description}】\n{result}"
+            memories["memory_text"] += inject
+            if log_fn:
+                log_fn("info", f"技能匹配: {skill.name}")
+        except Exception as e:
+            if log_fn:
+                log_fn("info", f"技能执行失败 {skill.name}: {e}")
+
+
+def _save_turn_data(session, perception: dict, think_result: dict,
+                    memories: dict, memories_used_at, user_input_at,
+                    raw_user_input: str, final_response: str,
+                    tool_results: list[dict], input_metadata: dict, L: dict):
+    """Save raw conversation + detailed conversation turn to DB."""
+    assistant_reply_at = get_now()
+
+    for s in memories.get("strategies", []):
+        mark_strategy_executed(s["id"], result=L["strategy_executed_result"])
+
+    save_raw_conversation(
+        session_id=session.id,
+        session_created_at=session.created_at,
+        user_input=raw_user_input,
+        user_input_at=user_input_at,
+        assistant_reply=final_response,
+        assistant_reply_at=assistant_reply_at,
+    )
+
+    completed_at = get_now()
+    memories_for_db = []
+    if memories["profile"]:
+        memories_for_db.append({
+            "type": "profile",
+            "data": [{"category": p["category"], "field": p["field"],
+                       "value": p["value"]} for p in memories["profile"]],
+        })
+    if memories["hypotheses"]:
+        memories_for_db.append({
+            "type": "profile",
+            "data": [{"category": h["category"], "subject": h["subject"],
+                       "value": h.get("value") or h.get("claim", ""),
+                       "layer": h.get("layer", "suspected")}
+                      for h in memories["hypotheses"]],
+        })
+    if memories["events"]:
+        memories_for_db.append({
+            "type": "events",
+            "data": [{"category": e["category"], "summary": e["summary"]}
+                      for e in memories["events"]],
+        })
+
+    file_data = None
+    file_path = input_metadata.get("file_path", "")
+    if file_path and input_metadata.get("type") in ("image", "voice", "file"):
+        try:
+            if os.path.exists(file_path):
+                with open(file_path, "rb") as f:
+                    file_data = f.read()
+        except Exception:
+            pass
+
+    save_conversation_turn({
+        "session_id": session.id,
+        "session_created_at": session.created_at,
+        "user_input": raw_user_input,
+        "user_input_at": user_input_at,
+        "assistant_reply": final_response,
+        "assistant_reply_at": assistant_reply_at,
+        "intent": perception["intent"],
+        "need_memory": perception["need_memory"],
+        "memory_type": perception["memory_type"],
+        "ai_summary": perception["ai_summary"],
+        "perception_at": perception["perception_at"],
+        "memories_used": memories_for_db,
+        "memories_used_at": memories_used_at,
+        "raw_response": think_result["raw_response"],
+        "raw_response_at": think_result["raw_response_at"],
+        "verification_result": think_result["verification_result"],
+        "verification_result_at": think_result["verification_result_at"],
+        "final_response": think_result["final_response"],
+        "final_response_at": think_result["final_response_at"],
+        "thinking_notes": think_result["thinking_notes"],
+        "thinking_notes_at": think_result["thinking_notes_at"],
+        "completed_at": completed_at,
+        "input_type": input_metadata.get("type", "text"),
+        "file_path": file_path,
+        "file_data": file_data,
+        "tool_results": [
+            {"tool": t["tool"], "params": t["params"],
+             "success": t["result"].success,
+             "data": t["result"].data[:500] if t["result"].success else "",
+             "error": t["result"].error}
+            for t in tool_results
+        ] if tool_results else [],
+    })
+
+
 def _extract_citations(tool_results: list[dict], language: str = "zh") -> str:
     L = get_labels("context.labels", language)
     citation_label = L.get("citation_header", L.get("citation_header_default", "Sources"))
@@ -373,17 +564,7 @@ def run_cycle(user_input: str | dict, session: Session,
         if category == "personal":
             trajectory = session.cognition.analyze_trajectory(llm_input, memories)
             if trajectory:
-                trajectory_block = L["section_trajectory_divergence"] + "\n"
-                trajectory_block += f"  {L['judgment']}: {trajectory.get('trajectory', '?')} — {trajectory.get('reasoning', '')}\n"
-                causes = trajectory.get("possible_causes", [])
-                if causes:
-                    trajectory_block += f"  {L['possible_causes_label']}: {', '.join(causes)}\n"
-                if trajectory.get("real_need"):
-                    trajectory_block += f"  {L['real_need_guess']}: {trajectory['real_need']}\n"
-                trajectory_block += f"  {L['immediate_strategy_text']}\n"
-                is_temp = trajectory.get("is_temporary", True)
-                trajectory_block += f"  {L['persistence_label']}: {L['persistence_temp'] if is_temp else L['persistence_lasting']}"
-
+                trajectory_block = _build_trajectory_block(trajectory, L)
                 if memories["memory_text"]:
                     memories["memory_text"] += "\n\n" + trajectory_block
                 else:
@@ -392,81 +573,12 @@ def run_cycle(user_input: str | dict, session: Session,
     tool_results = resolve_tools(
         processed_text, perception, session.tool_registry,
         session.cognition.config, input_metadata,
-        language=session.full_config.get("language", "zh"),
+        language=language,
         profile=memories.get("profile"),
     )
 
-    if tool_results:
-        _tool_labels = {
-            "image_describe": L["tool_label_image"],
-            "web_search": L["tool_label_web_search"],
-            "voice_transcribe": L["tool_label_voice"],
-            "finance_query": L["tool_label_finance"],
-            "health_query": L["tool_label_health"],
-        }
-        tool_context = "\n\n".join(
-            f"【{_tool_labels.get(t['tool'], t['tool'])}】\n{t['result'].data}"
-            for t in tool_results if t["result"].success
-        )
-        if tool_context:
-            if memories["memory_text"]:
-                memories["memory_text"] += "\n\n" + tool_context
-            else:
-                memories["memory_text"] = tool_context
-            log("info", f"工具结果已注入上下文 ({len(tool_results)} 个工具)")
-
-        for t in tool_results:
-            if t["tool"] == "image_describe" and t["result"].success:
-                placeholder = L["image_placeholder"]
-                clean_input = llm_input.replace(placeholder + " ", "").replace(placeholder, "").strip()
-                llm_input = L["image_recognized_prefix"] + clean_input
-
-    if session.full_config.get("skills", {}).get("enabled", True):
-        skill_action = detect_skill_request(processed_text, language=session.full_config.get("language", "zh"))
-        if skill_action == "create":
-            result = create_skill_from_chat(
-                processed_text, session.cognition.config,
-                session.tool_registry.list_available(),
-                language=session.full_config.get("language", "zh"),
-            )
-            if result["success"]:
-                session.skill_registry.reload()
-                inject = (f"\n\n{L['skill_created_header']}\n{L['skill_name_label']}: {result['skill_name']}\n"
-                          f"{L['skill_desc_label']}: {result['description']}\n{result['message']}")
-            else:
-                inject = f"\n\n{L['skill_create_failed_header']}\n{result['message']}"
-            memories["memory_text"] += inject
-            log("info", f"技能创建: {result}")
-        elif skill_action == "delete":
-            skill_name = extract_skill_name(processed_text, language=session.full_config.get("language", "zh"))
-            if skill_name:
-                deleted = delete_skill(skill_name)
-                if deleted:
-                    session.skill_registry.reload()
-                    inject = f"\n\n{L['skill_deleted_header']}\n{L['skill_deleted_label']}: {skill_name}"
-                else:
-                    inject = f"\n\n{L['skill_delete_failed_header']}\n{L['skill_not_found']}: {skill_name}"
-            else:
-                inject = f"\n\n{L['skill_delete_failed_header']}\n{L['skill_delete_no_name']}"
-            memories["memory_text"] += inject
-            log("info", f"技能删除: skill_name={skill_name}")
-
-    if session.full_config.get("skills", {}).get("enabled", True):
-        matched_skills = session.skill_registry.match_keywords(processed_text)
-        for skill in matched_skills:
-            try:
-                if skill.is_simple:
-                    inject = f"\n\n{L['skill_guide_header'].format(description=skill.description)}\n{skill.instruction}"
-                else:
-                    result = execute_skill(
-                        skill, session.tool_registry,
-                        session.cognition.config, session.full_config,
-                    )
-                    inject = f"\n\n【{skill.description}】\n{result}"
-                memories["memory_text"] += inject
-                log("info", f"技能匹配: {skill.name}")
-            except Exception as e:
-                log("info", f"技能执行失败 {skill.name}: {e}")
+    llm_input = _inject_tool_context(tool_results, memories, llm_input, L, log_fn)
+    _handle_skills(processed_text, session, memories, L, log_fn)
 
     has_tool_data = any(t["result"].success and t["result"].data for t in tool_results) if tool_results else False
     log("info", f"思考中...{'(云端)' if has_tool_data else '(本地)'}")
@@ -479,87 +591,8 @@ def run_cycle(user_input: str | dict, session: Session,
             final_response += "\n\n" + citations
             think_result["final_response"] = final_response
 
-    assistant_reply_at = get_now()
-
-    for s in memories.get("strategies", []):
-        mark_strategy_executed(s["id"], result=L["strategy_executed_result"])
-
-    save_raw_conversation(
-        session_id=session.id,
-        session_created_at=session.created_at,
-        user_input=raw_user_input,
-        user_input_at=user_input_at,
-        assistant_reply=final_response,
-        assistant_reply_at=assistant_reply_at,
-    )
-
-    completed_at = get_now()
-    memories_for_db = []
-    if memories["profile"]:
-        memories_for_db.append({
-            "type": "profile",
-            "data": [{"category": p["category"], "field": p["field"],
-                       "value": p["value"]} for p in memories["profile"]],
-        })
-    if memories["hypotheses"]:
-        memories_for_db.append({
-            "type": "profile",
-            "data": [{"category": h["category"], "subject": h["subject"],
-                       "value": h.get("value") or h.get("claim", ""),
-                       "layer": h.get("layer", "suspected")}
-                      for h in memories["hypotheses"]],
-        })
-    if memories["events"]:
-        memories_for_db.append({
-            "type": "events",
-            "data": [{"category": e["category"], "summary": e["summary"]}
-                      for e in memories["events"]],
-        })
-
-    file_data = None
-    file_path = input_metadata.get("file_path", "")
-    if file_path and input_metadata.get("type") in ("image", "voice", "file"):
-        try:
-            if os.path.exists(file_path):
-                with open(file_path, "rb") as f:
-                    file_data = f.read()
-        except Exception:
-            pass
-
-    save_conversation_turn({
-        "session_id": session.id,
-        "session_created_at": session.created_at,
-        "user_input": raw_user_input,
-        "user_input_at": user_input_at,
-        "assistant_reply": final_response,
-        "assistant_reply_at": assistant_reply_at,
-        "intent": perception["intent"],
-        "need_memory": perception["need_memory"],
-        "memory_type": perception["memory_type"],
-        "ai_summary": perception["ai_summary"],
-        "perception_at": perception["perception_at"],
-        "memories_used": memories_for_db,
-        "memories_used_at": memories_used_at,
-        "raw_response": think_result["raw_response"],
-        "raw_response_at": think_result["raw_response_at"],
-        "verification_result": think_result["verification_result"],
-        "verification_result_at": think_result["verification_result_at"],
-        "final_response": think_result["final_response"],
-        "final_response_at": think_result["final_response_at"],
-        "thinking_notes": think_result["thinking_notes"],
-        "thinking_notes_at": think_result["thinking_notes_at"],
-        "completed_at": completed_at,
-        "input_type": input_metadata.get("type", "text"),
-        "file_path": file_path,
-        "file_data": file_data,
-        "tool_results": [
-            {"tool": t["tool"], "params": t["params"],
-             "success": t["result"].success,
-             "data": t["result"].data[:500] if t["result"].success else "",
-             "error": t["result"].error}
-            for t in tool_results
-        ] if tool_results else [],
-    })
+    _save_turn_data(session, perception, think_result, memories, memories_used_at,
+                    user_input_at, raw_user_input, final_response, tool_results, input_metadata, L)
 
     return {
         "response": final_response,
@@ -592,7 +625,6 @@ async def run_cycle_async(user_input: str | dict, session: Session,
 
     raw_user_input = raw_input.get("text", "") or processed_text
 
-    # Step 1: 感知（串行，后面都依赖它）
     log("info", "感知中...")
     perception = await session.cognition.perceive_async(
         processed_text,
@@ -615,14 +647,13 @@ async def run_cycle_async(user_input: str | dict, session: Session,
             "memory_text": "",
         }
         memories_used_at = get_now()
-        # knowledge 类也可能需要工具
         tool_results = await resolve_tools_async(
             processed_text, perception, session.tool_registry,
             session.cognition.config, input_metadata,
             language=language,
         )
     else:
-        # Step 2: 记忆构建 + 工具调度 并行
+        # Memory build + tool resolution in parallel
         log("info", "记忆构建 + 工具调度 并行中...")
 
         async def _build_memory():
@@ -644,98 +675,18 @@ async def run_cycle_async(user_input: str | dict, session: Session,
         session.executed_strategy_ids.update(memories.get("strategy_ids", []))
         memories_used_at = get_now()
 
-        # Step 3: 轨迹分析（依赖 memories，串行）
         if category == "personal":
             trajectory = await session.cognition.analyze_trajectory_async(llm_input, memories)
             if trajectory:
-                trajectory_block = L["section_trajectory_divergence"] + "\n"
-                trajectory_block += f"  {L['judgment']}: {trajectory.get('trajectory', '?')} — {trajectory.get('reasoning', '')}\n"
-                causes = trajectory.get("possible_causes", [])
-                if causes:
-                    trajectory_block += f"  {L['possible_causes_label']}: {', '.join(causes)}\n"
-                if trajectory.get("real_need"):
-                    trajectory_block += f"  {L['real_need_guess']}: {trajectory['real_need']}\n"
-                trajectory_block += f"  {L['immediate_strategy_text']}\n"
-                is_temp = trajectory.get("is_temporary", True)
-                trajectory_block += f"  {L['persistence_label']}: {L['persistence_temp'] if is_temp else L['persistence_lasting']}"
-
+                trajectory_block = _build_trajectory_block(trajectory, L)
                 if memories["memory_text"]:
                     memories["memory_text"] += "\n\n" + trajectory_block
                 else:
                     memories["memory_text"] = trajectory_block
 
-    # 工具结果注入（同步逻辑，不变）
-    if tool_results:
-        _tool_labels = {
-            "image_describe": L["tool_label_image"],
-            "web_search": L["tool_label_web_search"],
-            "voice_transcribe": L["tool_label_voice"],
-            "finance_query": L["tool_label_finance"],
-            "health_query": L["tool_label_health"],
-        }
-        tool_context = "\n\n".join(
-            f"【{_tool_labels.get(t['tool'], t['tool'])}】\n{t['result'].data}"
-            for t in tool_results if t["result"].success
-        )
-        if tool_context:
-            if memories["memory_text"]:
-                memories["memory_text"] += "\n\n" + tool_context
-            else:
-                memories["memory_text"] = tool_context
-            log("info", f"工具结果已注入上下文 ({len(tool_results)} 个工具)")
+    llm_input = _inject_tool_context(tool_results, memories, llm_input, L, log_fn)
+    _handle_skills(processed_text, session, memories, L, log_fn)
 
-        for t in tool_results:
-            if t["tool"] == "image_describe" and t["result"].success:
-                placeholder = L["image_placeholder"]
-                clean_input = llm_input.replace(placeholder + " ", "").replace(placeholder, "").strip()
-                llm_input = L["image_recognized_prefix"] + clean_input
-
-    # 技能处理（同步逻辑，不变）
-    if session.full_config.get("skills", {}).get("enabled", True):
-        skill_action = detect_skill_request(processed_text, language=language)
-        if skill_action == "create":
-            result = create_skill_from_chat(
-                processed_text, session.cognition.config,
-                session.tool_registry.list_available(),
-                language=language,
-            )
-            if result["success"]:
-                session.skill_registry.reload()
-                inject = (f"\n\n{L['skill_created_header']}\n{L['skill_name_label']}: {result['skill_name']}\n"
-                          f"{L['skill_desc_label']}: {result['description']}\n{result['message']}")
-            else:
-                inject = f"\n\n{L['skill_create_failed_header']}\n{result['message']}"
-            memories["memory_text"] += inject
-        elif skill_action == "delete":
-            skill_name = extract_skill_name(processed_text, language=language)
-            if skill_name:
-                deleted = delete_skill(skill_name)
-                if deleted:
-                    session.skill_registry.reload()
-                    inject = f"\n\n{L['skill_deleted_header']}\n{L['skill_deleted_label']}: {skill_name}"
-                else:
-                    inject = f"\n\n{L['skill_delete_failed_header']}\n{L['skill_not_found']}: {skill_name}"
-            else:
-                inject = f"\n\n{L['skill_delete_failed_header']}\n{L['skill_delete_no_name']}"
-            memories["memory_text"] += inject
-
-    if session.full_config.get("skills", {}).get("enabled", True):
-        matched_skills = session.skill_registry.match_keywords(processed_text)
-        for skill in matched_skills:
-            try:
-                if skill.is_simple:
-                    inject = f"\n\n{L['skill_guide_header'].format(description=skill.description)}\n{skill.instruction}"
-                else:
-                    result = execute_skill(
-                        skill, session.tool_registry,
-                        session.cognition.config, session.full_config,
-                    )
-                    inject = f"\n\n【{skill.description}】\n{result}"
-                memories["memory_text"] += inject
-            except Exception as e:
-                log("info", f"技能执行失败 {skill.name}: {e}")
-
-    # Step 4: 生成回复（异步）
     has_tool_data = any(t["result"].success and t["result"].data for t in tool_results) if tool_results else False
     log("info", f"思考中...{'(云端)' if has_tool_data else '(本地)'}")
     think_result = await session.cognition.think_async(llm_input, perception, memories, use_cloud=has_tool_data)
@@ -747,87 +698,8 @@ async def run_cycle_async(user_input: str | dict, session: Session,
             final_response += "\n\n" + citations
             think_result["final_response"] = final_response
 
-    assistant_reply_at = get_now()
-
-    for s in memories.get("strategies", []):
-        mark_strategy_executed(s["id"], result=L["strategy_executed_result"])
-
-    save_raw_conversation(
-        session_id=session.id,
-        session_created_at=session.created_at,
-        user_input=raw_user_input,
-        user_input_at=user_input_at,
-        assistant_reply=final_response,
-        assistant_reply_at=assistant_reply_at,
-    )
-
-    completed_at = get_now()
-    memories_for_db = []
-    if memories["profile"]:
-        memories_for_db.append({
-            "type": "profile",
-            "data": [{"category": p["category"], "field": p["field"],
-                       "value": p["value"]} for p in memories["profile"]],
-        })
-    if memories["hypotheses"]:
-        memories_for_db.append({
-            "type": "profile",
-            "data": [{"category": h["category"], "subject": h["subject"],
-                       "value": h.get("value") or h.get("claim", ""),
-                       "layer": h.get("layer", "suspected")}
-                      for h in memories["hypotheses"]],
-        })
-    if memories["events"]:
-        memories_for_db.append({
-            "type": "events",
-            "data": [{"category": e["category"], "summary": e["summary"]}
-                      for e in memories["events"]],
-        })
-
-    file_data = None
-    file_path = input_metadata.get("file_path", "")
-    if file_path and input_metadata.get("type") in ("image", "voice", "file"):
-        try:
-            if os.path.exists(file_path):
-                with open(file_path, "rb") as f:
-                    file_data = f.read()
-        except Exception:
-            pass
-
-    save_conversation_turn({
-        "session_id": session.id,
-        "session_created_at": session.created_at,
-        "user_input": raw_user_input,
-        "user_input_at": user_input_at,
-        "assistant_reply": final_response,
-        "assistant_reply_at": assistant_reply_at,
-        "intent": perception["intent"],
-        "need_memory": perception["need_memory"],
-        "memory_type": perception["memory_type"],
-        "ai_summary": perception["ai_summary"],
-        "perception_at": perception["perception_at"],
-        "memories_used": memories_for_db,
-        "memories_used_at": memories_used_at,
-        "raw_response": think_result["raw_response"],
-        "raw_response_at": think_result["raw_response_at"],
-        "verification_result": think_result["verification_result"],
-        "verification_result_at": think_result["verification_result_at"],
-        "final_response": think_result["final_response"],
-        "final_response_at": think_result["final_response_at"],
-        "thinking_notes": think_result["thinking_notes"],
-        "thinking_notes_at": think_result["thinking_notes_at"],
-        "completed_at": completed_at,
-        "input_type": input_metadata.get("type", "text"),
-        "file_path": file_path,
-        "file_data": file_data,
-        "tool_results": [
-            {"tool": t["tool"], "params": t["params"],
-             "success": t["result"].success,
-             "data": t["result"].data[:500] if t["result"].success else "",
-             "error": t["result"].error}
-            for t in tool_results
-        ] if tool_results else [],
-    })
+    _save_turn_data(session, perception, think_result, memories, memories_used_at,
+                    user_input_at, raw_user_input, final_response, tool_results, input_metadata, L)
 
     return {
         "response": final_response,

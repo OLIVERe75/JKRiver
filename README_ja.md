@@ -134,6 +134,24 @@ python web.py                         # Web ダッシュボード
 
 > 📖 **[完全なドキュメント →](https://wangjiake.github.io/riverse-docs/ja/)** — インストール、設定、機能、開発ガイド。
 
+### テスト
+
+```bash
+# クイックチェック — モジュールインポートとDBスキーマの検証（LLM不要）
+python tests/test_imports.py
+python tests/test_db.py
+
+# エンドツーエンドパイプラインテスト — LLM + データベースが必要
+python tests/test_demo_pipeline.py                          # demo2.json（52セッション、英語）
+python tests/test_demo_pipeline.py tests/data/demo.json     # demo.json （50セッション、中国語）
+python tests/test_demo_pipeline.py --sessions 3             # クイックスモークテスト（3セッションのみ）
+
+# テストデータをデータベースからクリーンアップ
+python tests/test_demo_pipeline.py --clean
+```
+
+テストデータは `tests/data/` に含まれています。外部依存は不要です。
+
 ## 技術スタック
 
 | レイヤー | 技術 |

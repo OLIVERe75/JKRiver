@@ -122,26 +122,50 @@ def _compute_embeddings_hash(rows: list[dict]) -> str:
 
 
 def _load_all_embeddings() -> list[dict]:
+    from agent.utils.embedding import _pgvector_available
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT id, source_table, source_id, text_content, embedding "
-                "FROM memory_embeddings ORDER BY id"
-            )
-            rows = []
-            for r in cur.fetchall():
-                emb = r["embedding"]
-                if isinstance(emb, str):
-                    emb = json.loads(emb)
-                rows.append({
-                    "id": r["id"],
-                    "source_table": r["source_table"],
-                    "source_id": r["source_id"],
-                    "text_content": r["text_content"],
-                    "embedding": emb,
-                })
-            return rows
+            # Prefer vector column when pgvector is available
+            if _pgvector_available:
+                cur.execute(
+                    "SELECT id, source_table, source_id, text_content, embedding_vec "
+                    "FROM memory_embeddings WHERE embedding_vec IS NOT NULL ORDER BY id"
+                )
+                rows = []
+                for r in cur.fetchall():
+                    emb = r["embedding_vec"]
+                    # pgvector returns as string like "[0.1,0.2,...]", convert to list
+                    if isinstance(emb, str):
+                        emb = [float(x) for x in emb.strip("[]").split(",")]
+                    elif hasattr(emb, '__iter__'):
+                        emb = list(emb)
+                    rows.append({
+                        "id": r["id"],
+                        "source_table": r["source_table"],
+                        "source_id": r["source_id"],
+                        "text_content": r["text_content"],
+                        "embedding": emb,
+                    })
+                return rows
+            else:
+                cur.execute(
+                    "SELECT id, source_table, source_id, text_content, embedding "
+                    "FROM memory_embeddings ORDER BY id"
+                )
+                rows = []
+                for r in cur.fetchall():
+                    emb = r["embedding"]
+                    if isinstance(emb, str):
+                        emb = json.loads(emb)
+                    rows.append({
+                        "id": r["id"],
+                        "source_table": r["source_table"],
+                        "source_id": r["source_id"],
+                        "text_content": r["text_content"],
+                        "embedding": emb,
+                    })
+                return rows
     finally:
         conn.close()
 

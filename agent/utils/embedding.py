@@ -1,17 +1,42 @@
 
 import hashlib
+import json
+import logging
 import math
 import requests
 from psycopg2.extras import RealDictCursor
 from agent.storage import get_db_connection
 from agent.config.prompts import get_labels
 
+logger = logging.getLogger(__name__)
+
 _table_ensured = False
+_pgvector_available = None  # None = not checked yet
+
+def _check_pgvector() -> bool:
+    """Check if pgvector extension is available and enable it."""
+    global _pgvector_available
+    if _pgvector_available is not None:
+        return _pgvector_available
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
+                conn.commit()
+                _pgvector_available = True
+            except Exception:
+                conn.rollback()
+                _pgvector_available = False
+    finally:
+        conn.close()
+    return _pgvector_available
 
 def _ensure_embedding_table():
     global _table_ensured
     if _table_ensured:
         return
+    has_pgvector = _check_pgvector()
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
@@ -29,6 +54,35 @@ def _ensure_embedding_table():
                     UNIQUE(source_table, source_id)
                 );
             """)
+            if has_pgvector:
+                # Add vector column if it doesn't exist
+                cur.execute("""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'memory_embeddings'
+                            AND column_name = 'embedding_vec'
+                        ) THEN
+                            ALTER TABLE memory_embeddings ADD COLUMN embedding_vec vector(1024);
+                        END IF;
+                    END $$;
+                """)
+                # Migrate existing JSONB data to vector column
+                cur.execute("""
+                    UPDATE memory_embeddings
+                    SET embedding_vec = embedding::text::vector
+                    WHERE embedding_vec IS NULL AND embedding IS NOT NULL
+                """)
+                # Create IVFFlat index if enough rows exist
+                cur.execute("SELECT COUNT(*) FROM memory_embeddings")
+                count = cur.fetchone()[0]
+                if count >= 100:
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_memory_embeddings_vec
+                        ON memory_embeddings USING ivfflat (embedding_vec vector_cosine_ops)
+                        WITH (lists = 100)
+                    """)
         conn.commit()
         _table_ensured = True
     finally:
@@ -53,19 +107,42 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
         return 0.0
     return dot / (norm_a * norm_b)
 
-def vector_search(query_text: str, config: dict,
-                  top_k: int = 5, min_score: float = 0.40,
-                  source_tables: list[str] | None = None) -> list[dict]:
-    emb_cfg = config.get("embedding", {})
-    model = emb_cfg.get("model", "")
-    api_base = emb_cfg.get("api_base", "")
-    search_cfg = emb_cfg.get("search", {})
-    top_k = search_cfg.get("top_k", top_k)
-    min_score = search_cfg.get("min_score", min_score)
+def _vector_search_pgvector(query_vec: list[float], top_k: int, min_score: float,
+                            source_tables: list[str] | None) -> list[dict]:
+    """Use pgvector SQL for similarity search."""
+    vec_str = "[" + ",".join(str(v) for v in query_vec) + "]"
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if source_tables:
+                cur.execute("""
+                    SELECT source_table, source_id, text_content,
+                           1 - (embedding_vec <=> %s::vector) AS score
+                    FROM memory_embeddings
+                    WHERE source_table = ANY(%s)
+                      AND embedding_vec IS NOT NULL
+                      AND 1 - (embedding_vec <=> %s::vector) >= %s
+                    ORDER BY embedding_vec <=> %s::vector
+                    LIMIT %s
+                """, (vec_str, source_tables, vec_str, min_score, vec_str, top_k))
+            else:
+                cur.execute("""
+                    SELECT source_table, source_id, text_content,
+                           1 - (embedding_vec <=> %s::vector) AS score
+                    FROM memory_embeddings
+                    WHERE embedding_vec IS NOT NULL
+                      AND 1 - (embedding_vec <=> %s::vector) >= %s
+                    ORDER BY embedding_vec <=> %s::vector
+                    LIMIT %s
+                """, (vec_str, vec_str, min_score, vec_str, top_k))
+            return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
 
-    query_vec = get_embedding(query_text, model=model, api_base=api_base)
 
-    _ensure_embedding_table()
+def _vector_search_python(query_vec: list[float], top_k: int, min_score: float,
+                          source_tables: list[str] | None) -> list[dict]:
+    """Fallback: full-table scan with Python cosine similarity."""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -86,7 +163,6 @@ def vector_search(query_text: str, config: dict,
             continue
         emb = row["embedding"]
         if isinstance(emb, str):
-            import json
             emb = json.loads(emb)
         score = cosine_similarity(query_vec, emb)
         if score >= min_score:
@@ -99,6 +175,29 @@ def vector_search(query_text: str, config: dict,
 
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored[:top_k]
+
+
+def vector_search(query_text: str, config: dict,
+                  top_k: int = 5, min_score: float = 0.40,
+                  source_tables: list[str] | None = None) -> list[dict]:
+    emb_cfg = config.get("embedding", {})
+    model = emb_cfg.get("model", "")
+    api_base = emb_cfg.get("api_base", "")
+    search_cfg = emb_cfg.get("search", {})
+    top_k = search_cfg.get("top_k", top_k)
+    min_score = search_cfg.get("min_score", min_score)
+
+    query_vec = get_embedding(query_text, model=model, api_base=api_base)
+
+    _ensure_embedding_table()
+
+    if _pgvector_available:
+        try:
+            return _vector_search_pgvector(query_vec, top_k, min_score, source_tables)
+        except Exception:
+            logger.warning("pgvector search failed, falling back to Python")
+
+    return _vector_search_python(query_vec, top_k, min_score, source_tables)
 
 def _profile_to_text(row: dict) -> str:
     return f"{row['category']} {row['subject']}: {row['value']}"
@@ -221,29 +320,49 @@ def embed_all_memories(config: dict):
                 except Exception as e:
                     continue
 
-                import json
                 emb_json = json.dumps(embedding)
+                vec_str = "[" + ",".join(str(v) for v in embedding) + "]" if _pgvector_available else None
 
                 with conn.cursor() as cur:
                     if key in existing:
-                        cur.execute(
-                            "UPDATE memory_embeddings "
-                            "SET content_hash=%s, text_content=%s, embedding=%s, "
-                            "    model=%s, updated_at=NOW() "
-                            "WHERE source_table=%s AND source_id=%s",
-                            (content_hash, text, emb_json, model,
-                             table_name, row["id"]),
-                        )
+                        if vec_str:
+                            cur.execute(
+                                "UPDATE memory_embeddings "
+                                "SET content_hash=%s, text_content=%s, embedding=%s, "
+                                "    embedding_vec=%s::vector, model=%s, updated_at=NOW() "
+                                "WHERE source_table=%s AND source_id=%s",
+                                (content_hash, text, emb_json, vec_str, model,
+                                 table_name, row["id"]),
+                            )
+                        else:
+                            cur.execute(
+                                "UPDATE memory_embeddings "
+                                "SET content_hash=%s, text_content=%s, embedding=%s, "
+                                "    model=%s, updated_at=NOW() "
+                                "WHERE source_table=%s AND source_id=%s",
+                                (content_hash, text, emb_json, model,
+                                 table_name, row["id"]),
+                            )
                         total_updated += 1
                     else:
-                        cur.execute(
-                            "INSERT INTO memory_embeddings "
-                            "(source_table, source_id, content_hash, text_content, "
-                            " embedding, model) "
-                            "VALUES (%s, %s, %s, %s, %s, %s)",
-                            (table_name, row["id"], content_hash, text,
-                             emb_json, model),
-                        )
+                        if vec_str:
+                            cur.execute(
+                                "INSERT INTO memory_embeddings "
+                                "(source_table, source_id, content_hash, text_content, "
+                                " embedding, embedding_vec, model) "
+                                "VALUES (%s, %s, %s, %s, %s, %s::vector, %s)",
+                                (table_name, row["id"], content_hash, text,
+                                 emb_json, vec_str, model),
+                            )
+                        else:
+                            cur.execute(
+                                "INSERT INTO memory_embeddings "
+                                "(source_table, source_id, content_hash, text_content, "
+                                " embedding, model) "
+                                "VALUES (%s, %s, %s, %s, %s, %s)",
+                                (table_name, row["id"], content_hash, text,
+                                 emb_json, model),
+                            )
                         total_new += 1
 
                 conn.commit()

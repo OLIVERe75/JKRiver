@@ -134,6 +134,24 @@ python web.py                         # Web Dashboard
 
 > 📖 **[Full documentation →](https://wangjiake.github.io/riverse-docs/)** — installation, configuration, features, development guides.
 
+### Testing
+
+```bash
+# Quick checks — verify imports and database schema (no LLM needed)
+python tests/test_imports.py
+python tests/test_db.py
+
+# End-to-end pipeline test — requires LLM + database
+python tests/test_demo_pipeline.py                          # demo2.json (52 sessions, English)
+python tests/test_demo_pipeline.py tests/data/demo.json     # demo.json  (50 sessions, Chinese)
+python tests/test_demo_pipeline.py --sessions 3             # Quick smoke test (3 sessions only)
+
+# Clean up test data from database
+python tests/test_demo_pipeline.py --clean
+```
+
+Test data is included in `tests/data/`. No external dependencies needed.
+
 ## Tech Stack
 
 | Layer | Technology |

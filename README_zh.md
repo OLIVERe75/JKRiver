@@ -134,6 +134,24 @@ python web.py                         # Web 仪表盘
 
 > 📖 **[完整文档 →](https://wangjiake.github.io/riverse-docs/zh/)** — 安装、配置、功能说明、开发指南。
 
+### 测试
+
+```bash
+# 快速检查 — 验证模块导入和数据库表结构（不需要 LLM）
+python tests/test_imports.py
+python tests/test_db.py
+
+# 端到端流水线测试 — 需要 LLM + 数据库
+python tests/test_demo_pipeline.py                          # demo2.json（52 组会话，英文）
+python tests/test_demo_pipeline.py tests/data/demo.json     # demo.json （50 组会话，中文）
+python tests/test_demo_pipeline.py --sessions 3             # 快速冒烟测试（仅 3 组会话）
+
+# 清理测试数据
+python tests/test_demo_pipeline.py --clean
+```
+
+测试数据已包含在 `tests/data/` 中，无需额外依赖。
+
 ## 技术栈
 
 | 层 | 技术 |
