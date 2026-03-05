@@ -2266,6 +2266,9 @@ def run():
             cat = f["category"]
             subj = f["subject"]
 
+            if f.get("superseded_by") or f.get("supersedes"):
+                continue
+
             close_time_period(fact_id, end_time=latest_conv_time)
             delete_fact_edges_for(fact_id)
             try:
@@ -2690,6 +2693,8 @@ async def run_async():
     expired_facts = get_expired_facts(reference_time=latest_conv_time)
     if expired_facts:
         for f in expired_facts:
+            if f.get("superseded_by") or f.get("supersedes"):
+                continue
             close_time_period(f["id"], end_time=latest_conv_time)
             delete_fact_edges_for(f["id"])
             try:
