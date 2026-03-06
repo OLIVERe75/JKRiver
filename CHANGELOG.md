@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-03-06
+
+### Added
+
+- Centralized `is_llm_error()` to detect LLM error strings across all languages
+- Guard `_save_turn_data` to prevent LLM errors from being saved to database
+- Synced `is_llm_error()` to riverse and RiverHistory projects
+
+### Changed
+
+- Unified version to 1.2.0 across JKRiver, riverse (PyPI), Docker images
+- Simplified `_should_escalate` and web_search error check using `is_llm_error()`
+
+### Removed
+
+- Unused `local_call_failed` error keys from YAML prompts
+
 ## [1.1.0] - 2026-03-01
 
 ### Added
@@ -43,6 +60,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - FastAPI REST API + Flask Web Dashboard
 - Health endpoint (`/health`) and config validation
 
-[Unreleased]: https://github.com/wangjiake/JKRiver/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/wangjiake/JKRiver/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/wangjiake/JKRiver/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/wangjiake/JKRiver/compare/v0.1.0...v1.1.0
 [0.1.0]: https://github.com/wangjiake/JKRiver/releases/tag/v0.1.0
