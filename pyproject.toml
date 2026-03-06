@@ -1,0 +1,22 @@
+[project]
+name = "riverse"
+version = "0.1.0"
+description = "A personal AI agent with persistent memory and offline cognition — River Algorithm"
+requires-python = ">=3.10"
+license = "AGPL-3.0-or-later"
+authors = [
+    { name = "wangjiake", email = "mailwangjk@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/wangjiake/JKRiver"
+Documentation = "https://wangjiake.github.io/riverse-docs/"
+Repository = "https://github.com/wangjiake/JKRiver"
+Issues = "https://github.com/wangjiake/JKRiver/issues"
