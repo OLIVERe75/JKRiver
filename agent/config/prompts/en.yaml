@@ -955,7 +955,6 @@ errors.tools:
 errors.llm:
   call_failed: "[LLM call failed: {error}]"
   responses_no_text: "[LLM call failed: Responses API returned no text content]"
-  local_call_failed: "[Local LLM call failed: {error}]"
   failure_marker: "failed"
   unknown_capability: "Unknown capability: {name}"
   yaml_parse_failed: "YAML parse failed: {error}"

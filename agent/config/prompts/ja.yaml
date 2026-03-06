@@ -955,7 +955,6 @@ errors.tools:
 errors.llm:
   call_failed: "[LLM 呼び出し失敗: {error}]"
   responses_no_text: "[LLM 呼び出し失敗: Responses API がテキストコンテンツを返しませんでした]"
-  local_call_failed: "[ローカルLLM呼び出し失敗: {error}]"
   failure_marker: "失敗"
   unknown_capability: "不明な能力: {name}"
   yaml_parse_failed: "YAML解析失敗: {error}"
