@@ -18,7 +18,7 @@ def generate_strategies(changed_items: list[dict], config: dict,
                         current_profile: list[dict] | None = None,
                         trajectory: dict | None = None) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
     if not changed_items:
         return []
@@ -75,7 +75,7 @@ def generate_strategies(changed_items: list[dict], config: dict,
 def analyze_user_model(conversations: list[dict], config: dict,
                        current_profile: list[dict] | None = None) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
 
     dialogue = ""
@@ -121,7 +121,7 @@ def analyze_behavioral_patterns(observations: list[dict],
                                  trajectory: dict | None,
                                  config: dict) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
     if not observations or len(observations) < 1:
         return []
@@ -163,7 +163,7 @@ def analyze_behavioral_patterns(observations: list[dict],
 def cross_verify_suspected_facts(suspected_facts: list[dict], config: dict,
                                   trajectory: dict | None = None) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
     if not suspected_facts:
         return []

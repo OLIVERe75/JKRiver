@@ -30,7 +30,7 @@ class HealthQueryTool(BaseTool):
         self.config = config
 
     def manifest(self) -> ToolManifest:
-        lang = self.config.get("language", "zh")
+        lang = self.config.get("language", "en")
         fb = _FALLBACK.get(lang, _FALLBACK["en"])
         m = get_labels("tools.manifests", lang).get("health_query", {})
         return ToolManifest(
@@ -41,7 +41,7 @@ class HealthQueryTool(BaseTool):
         )
 
     def execute(self, params: dict) -> ToolResult:
-        TL = get_labels("tools.labels", self.config.get("language", "zh"))
+        TL = get_labels("tools.labels", self.config.get("language", "en"))
         data_type = params.get("data_type", "all")
 
         try:
@@ -81,5 +81,5 @@ class HealthQueryTool(BaseTool):
             return ToolResult(success=True, data="\n\n".join(parts))
 
         except Exception as e:
-            EL = get_labels("errors.tools", self.config.get("language", "zh"))
+            EL = get_labels("errors.tools", self.config.get("language", "en"))
             return ToolResult(success=False, data="", error=EL["health_query_failed"].format(error=e))

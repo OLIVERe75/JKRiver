@@ -45,10 +45,11 @@ def test_sleep_orchestration_exports():
 # ── storage package ──
 
 def test_storage_db():
-    from agent.storage._db import get_db_connection, DB_CONFIG
+    from agent.storage._db import get_db_connection, _get_db_config
     assert callable(get_db_connection)
-    assert isinstance(DB_CONFIG, dict)
-    assert "dbname" in DB_CONFIG
+    cfg = _get_db_config()
+    assert isinstance(cfg, dict)
+    assert "dbname" in cfg
 
 
 def test_storage_public_api():
@@ -109,9 +110,7 @@ def test_cognition_engine():
     engine = CognitionEngine(config)
     assert hasattr(engine, "perceive")
     assert hasattr(engine, "perceive_async")
-    assert hasattr(engine, "think")
     assert hasattr(engine, "think_async")
-    assert hasattr(engine, "analyze_trajectory")
     assert hasattr(engine, "analyze_trajectory_async")
 
 

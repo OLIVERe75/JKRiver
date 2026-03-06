@@ -9,7 +9,7 @@ _CREATE_ACTION = []
 _CREATE_TRIGGER = []
 _DELETE_KEYWORDS = []
 
-def detect_skill_request(text: str, language: str = "zh") -> str | None:
+def detect_skill_request(text: str, language: str = "en") -> str | None:
     if not text:
         return None
 
@@ -35,7 +35,7 @@ def detect_skill_request(text: str, language: str = "zh") -> str | None:
     return None
 
 def generate_skill_yaml(user_request: str, llm_config: dict,
-                        available_tools: list, language: str = "zh") -> dict:
+                        available_tools: list, language: str = "en") -> dict:
     L = get_labels("context.labels", language)
 
     tools_list = "\n".join(
@@ -103,7 +103,7 @@ def delete_skill(skill_name: str) -> bool:
             return True
     return False
 
-def extract_skill_name(text: str, language: str = "zh") -> str:
+def extract_skill_name(text: str, language: str = "en") -> str:
     kw = get_labels("skills.detect_keywords", language)
     delete_keywords = kw.get("delete", _DELETE_KEYWORDS)
     clean = text
@@ -114,7 +114,7 @@ def extract_skill_name(text: str, language: str = "zh") -> str:
 
 def create_skill_from_chat(user_text: str, llm_config: dict,
                            available_tools: list,
-                           language: str = "zh") -> dict:
+                           language: str = "en") -> dict:
     try:
         L = get_labels("context.labels", language)
         skill_data = generate_skill_yaml(user_text, llm_config, available_tools, language=language)

@@ -7,11 +7,11 @@ import mimetypes
 import discord
 from discord.ext import commands, tasks
 
-from agent.config import load_config
 from agent.config.prompts import get_labels
-from agent.core import SessionManager, run_cycle_async
-from agent.channel_utils import split_message, safe_remove
-from agent.proactive import ProactiveScanner
+from agent.core import run_cycle_async
+from agent.channel_utils import (
+    split_message, safe_remove, run_sleep_async, init_bot, is_allowed, get_session,
+)
 from agent.skills import SkillRegistry
 from agent.skills.executor import execute_skill
 
@@ -61,43 +61,28 @@ def _log(key: str) -> str:
     return _LOG.get(lang, _LOG["en"]).get(key, _LOG["en"].get(key, key))
 
 async def _run_sleep_async() -> str | None:
-    try:
-        from agent.sleep import run_async as sleep_run_async
-        await sleep_run_async()
+    result = await run_sleep_async()
+    if result:
         logger.info(_log("sleep_done"))
         return "💤 记忆整理完成"
-    except Exception:
-        logger.exception(_log("sleep_error"))
-        return None
+    return None
 
 _config: dict = {}
-_manager: SessionManager | None = None
+_manager = None
 _dc_config: dict = {}
-_proactive: ProactiveScanner | None = None
+_proactive = None
 
 MAX_DC_LENGTH = 2000
 
 def _init():
     global _config, _manager, _dc_config, _proactive
-    _config = load_config()
-    _manager = SessionManager(_config)
-    _dc_config = _config.get("discord", {})
-
-    temp_dir = _dc_config.get("temp_dir", "tmp/discord")
-    os.makedirs(temp_dir, exist_ok=True)
-
-    if _config.get("proactive", {}).get("enabled"):
-        _proactive = ProactiveScanner(_config)
+    _config, _manager, _dc_config, _proactive = init_bot("discord")
 
 def _is_allowed(user_id: int) -> bool:
-    allowed = _dc_config.get("allowed_user_ids", [])
-    if not allowed:
-        return True
-    return user_id in allowed
+    return is_allowed(_dc_config, user_id)
 
 def _get_session(user_id: int):
-    session_id = f"dc_{user_id}"
-    return _manager.get_or_create(session_id)
+    return get_session(_manager, user_id, "dc")
 
 def _split_dc_message(text: str) -> list[str]:
     return split_message(text, MAX_DC_LENGTH)
@@ -114,7 +99,7 @@ async def _process_and_reply(message: discord.Message, user_input, session):
             response_text = result["response"]
         except Exception:
             logger.exception(_log("run_cycle_error"))
-            BL = get_labels("bot.messages", _config.get("language", "zh"))
+            BL = get_labels("bot.messages", _config.get("language", "en"))
             response_text = BL["error_fallback"]
 
     for chunk in _split_dc_message(response_text):
@@ -210,7 +195,7 @@ async def on_message(message: discord.Message):
 
 @bot.command(name="start")
 async def cmd_start(ctx: commands.Context):
-    BL = get_labels("bot.messages", _config.get("language", "zh"))
+    BL = get_labels("bot.messages", _config.get("language", "en"))
     if not _is_allowed(ctx.author.id):
         await ctx.reply(BL["no_permission"])
         return
@@ -224,7 +209,7 @@ async def cmd_new(ctx: commands.Context):
 
     session_id = f"dc_{ctx.author.id}"
     _manager.remove(session_id)
-    BL = get_labels("bot.messages", _config.get("language", "zh"))
+    BL = get_labels("bot.messages", _config.get("language", "en"))
     await ctx.reply(BL["session_reset"])
 
     async def _sleep_and_notify():

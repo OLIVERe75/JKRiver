@@ -20,7 +20,7 @@ class _SafeFormatMap(dict):
     def __missing__(self, key):
         return "{" + key + "}"
 
-def get_prompt(key: str, language: str = "zh", **kwargs) -> str:
+def get_prompt(key: str, language: str = "en", **kwargs) -> str:
     prompts = _load_prompts(language)
     text = prompts.get(key)
     if text is None:
@@ -37,7 +37,7 @@ def get_prompt(key: str, language: str = "zh", **kwargs) -> str:
         text = _PLACEHOLDER_RE.sub(_replace, text)
     return text
 
-def get_labels(key: str, language: str = "zh") -> dict:
+def get_labels(key: str, language: str = "en") -> dict:
     prompts = _load_prompts(language)
     labels = prompts.get(key)
     if not isinstance(labels, dict):
@@ -45,12 +45,12 @@ def get_labels(key: str, language: str = "zh") -> dict:
         labels = fallback.get(key, {})
     return labels
 
-def get_failure_keywords(language: str = "zh", overrides: list = None) -> list:
+def get_failure_keywords(language: str = "en", overrides: list = None) -> list:
     if overrides:
         return overrides
     prompts = _load_prompts(language)
     keywords = prompts.get("meta.failure_keywords")
     if not isinstance(keywords, list):
-        fallback = _load_prompts("zh")
+        fallback = _load_prompts("en")
         keywords = fallback.get("meta.failure_keywords", [])
     return keywords

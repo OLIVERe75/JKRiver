@@ -1,10 +1,19 @@
+import logging
+
 from psycopg2.extras import RealDictCursor
 from agent.utils.time_context import get_now
 from ._db import get_db_connection
 from ._synonyms import _get_subject_synonyms
 
+logger = logging.getLogger(__name__)
 
-def load_conversation_summaries_around(pivot_time, limit_before=30, limit_after=50) -> dict:
+DEFAULT_SUMMARY_LIMIT_BEFORE = 30
+DEFAULT_SUMMARY_LIMIT_AFTER = 50
+
+
+def load_conversation_summaries_around(pivot_time,
+                                       limit_before=DEFAULT_SUMMARY_LIMIT_BEFORE,
+                                       limit_after=DEFAULT_SUMMARY_LIMIT_AFTER) -> dict:
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -113,6 +122,7 @@ def load_memory_snapshot() -> dict | None:
                     "FROM memory_snapshot ORDER BY id DESC LIMIT 1"
                 )
             except Exception:
+                logger.error("load_memory_snapshot query failed", exc_info=True)
                 conn.rollback()
                 return None
             row = cur.fetchone()
@@ -143,6 +153,7 @@ def save_fact_edge(source_fact_id: int, target_fact_id: int,
         conn.commit()
         return edge_id
     except Exception:
+        logger.error("save_fact_edge failed (src=%s, tgt=%s)", source_fact_id, target_fact_id, exc_info=True)
         conn.rollback()
         return -1
     finally:
@@ -181,6 +192,7 @@ def load_fact_edges(fact_ids: list[int] | None = None) -> list[dict]:
                     )
                 return [dict(r) for r in cur.fetchall()]
             except Exception:
+                logger.error("load_fact_edges query failed", exc_info=True)
                 conn.rollback()
                 return []
     finally:
@@ -197,6 +209,7 @@ def delete_fact_edges_for(fact_id: int):
                     (fact_id, fact_id),
                 )
             except Exception:
+                logger.error("delete_fact_edges_for failed (fact_id=%s)", fact_id, exc_info=True)
                 conn.rollback()
                 return
         conn.commit()

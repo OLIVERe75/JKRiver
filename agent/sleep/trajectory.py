@@ -16,7 +16,7 @@ def generate_trajectory_summary(current_profile: list[dict],
                                 config: dict,
                                 new_observations: list[dict] | None = None) -> dict:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
 
     profile_text = ""
@@ -89,7 +89,7 @@ def extract_fact_edges(affected_fact_ids: set[int], current_profile: list[dict],
     if not affected_fact_ids:
         return []
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
     prompt_text = get_prompt("sleep.extract_fact_edges", language)
 

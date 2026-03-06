@@ -33,10 +33,10 @@ class VoiceTranscribeTool(BaseTool):
         self.api_base = voice_cfg.get("api_base", llm_cfg.get("api_base", "https://api.openai.com"))
         self.api_key = voice_cfg.get("api_key", llm_cfg.get("api_key", ""))
         self.model = voice_cfg.get("model", "")
-        self.language = voice_cfg.get("language", "zh")
+        self.language = voice_cfg.get("language", "en")
 
     def manifest(self) -> ToolManifest:
-        lang = self.config.get("language", "zh")
+        lang = self.config.get("language", "en")
         fb = _FALLBACK.get(lang, _FALLBACK["en"])
         m = get_labels("tools.manifests", lang).get("voice_transcribe", {})
         return ToolManifest(
@@ -50,7 +50,7 @@ class VoiceTranscribeTool(BaseTool):
         return bool(self.api_key)
 
     def execute(self, params: dict) -> ToolResult:
-        EL = get_labels("errors.tools", self.config.get("language", "zh"))
+        EL = get_labels("errors.tools", self.config.get("language", "en"))
         file_path = params.get("file_path", "")
         if not file_path:
             return ToolResult(success=False, data="", error=EL["missing_file_path"])

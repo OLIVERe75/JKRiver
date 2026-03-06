@@ -35,7 +35,7 @@ def interpolate(template: str, variables: dict) -> str:
 def execute_skill(skill, tool_registry, llm_config: dict,
                   config: dict) -> str:
     variables = resolve_variables(skill, config)
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
 
     results = []
@@ -63,7 +63,7 @@ def execute_skill(skill, tool_registry, llm_config: dict,
             prompt_template = step["respond"]
             prompt = interpolate(prompt_template, variables)
 
-            language = config.get("language", "zh")
+            language = config.get("language", "en")
             messages = [
                 {"role": "system", "content": get_prompt("skills.executor_respond_system", language)},
                 {"role": "user", "content": prompt},

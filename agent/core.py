@@ -19,7 +19,7 @@ from agent.storage import (
 from agent.utils.profile_filter import format_profile_text
 from agent.tools import ToolRegistry
 from agent.tools.preprocess import preprocess_input
-from agent.tools._resolver import resolve_tools, resolve_tools_async
+from agent.tools._resolver import resolve_tools_async
 import asyncio
 from agent.config.prompts import get_labels
 from agent.skills import SkillRegistry
@@ -161,7 +161,7 @@ def _assemble_memory_context(
     vs_results: list,
     cluster_themes: list,
 ) -> dict:
-    """Assemble memory context dict from pre-loaded data. Shared by sync/async."""
+    """Assemble memory context dict from pre-loaded data."""
     strategies = [s for s in all_strategies if s["id"] not in executed_strategy_ids]
     strategy_ids_in_context = [s["id"] for s in strategies[:2]]
 
@@ -317,65 +317,14 @@ def _assemble_memory_context(
     }
 
 
-# ── build_memory_context (sync / async) ──────────────────
-
-def build_memory_context(perception: dict,
-                         executed_strategy_ids: set | None = None,
-                         config: dict | None = None) -> dict:
-    if executed_strategy_ids is None:
-        executed_strategy_ids = set()
-
-    language = config.get("language", "zh") if config else "zh"
-    L = get_labels("context.labels", language)
-
-    full_profile = load_full_current_profile()
-    user_model_data = load_user_model()
-
-    if perception.get("category", "chat") == "chat":
-        return _build_chat_memory_context(full_profile, user_model_data,
-                                          perception, config, language, L)
-
-    topic_keywords = perception.get("topic_keywords", [])
-    all_strategies = load_pending_strategies(
-        topic_keywords=topic_keywords if topic_keywords else None)
-    relationships_data = load_relationships()
-    events = load_active_events(top_k=5)
-    trajectory_data = load_trajectory_summary()
-    snapshot = load_memory_snapshot()
-    timeline = load_timeline()
-
-    fact_edges = _load_fact_edges_safe(full_profile)
-    vs_results = _load_vector_results_safe(perception, config)
-    cluster_themes = _load_cluster_themes_safe(config)
-
-    return _assemble_memory_context(
-        perception=perception,
-        full_profile=full_profile,
-        user_model_data=user_model_data,
-        config=config,
-        language=language,
-        L=L,
-        executed_strategy_ids=executed_strategy_ids,
-        all_strategies=all_strategies,
-        relationships_data=relationships_data,
-        events=events,
-        trajectory_data=trajectory_data,
-        snapshot=snapshot,
-        timeline=timeline,
-        fact_edges=fact_edges,
-        vs_results=vs_results,
-        cluster_themes=cluster_themes,
-    )
-
-
 async def build_memory_context_async(perception: dict,
                                      executed_strategy_ids: set | None = None,
                                      config: dict | None = None) -> dict:
-    """Async version — parallelizes independent DB queries."""
+    """Build memory context — parallelizes independent DB queries."""
     if executed_strategy_ids is None:
         executed_strategy_ids = set()
 
-    language = config.get("language", "zh") if config else "zh"
+    language = config.get("language", "en") if config else "en"
     L = get_labels("context.labels", language)
     category = perception.get("category", "chat")
 
@@ -479,7 +428,7 @@ def _inject_tool_context(tool_results: list[dict], memories: dict, llm_input: st
 
 def _handle_skills(processed_text: str, session, memories: dict, L: dict, log_fn):
     """Handle skill creation, deletion, and matching."""
-    language = session.full_config.get("language", "zh")
+    language = session.full_config.get("language", "en")
     if not session.full_config.get("skills", {}).get("enabled", True):
         return
 
@@ -621,7 +570,7 @@ def _save_turn_data(session, perception: dict, think_result: dict,
     })
 
 
-def _extract_citations(tool_results: list[dict], language: str = "zh") -> str:
+def _extract_citations(tool_results: list[dict], language: str = "en") -> str:
     L = get_labels("context.labels", language)
     citation_label = L.get("citation_header", L.get("citation_header_default", "Sources"))
     seen = set()
@@ -663,92 +612,6 @@ def _finalize_response(think_result: dict, tool_results: list[dict],
     return final_response
 
 
-def run_cycle(user_input: str | dict, session: Session,
-              log_fn=None) -> dict:
-    def log(level, msg):
-        if log_fn:
-            log_fn(level, msg)
-
-    user_input_at = get_now()
-
-    if isinstance(user_input, str):
-        raw_input = {"type": "text", "text": user_input}
-    else:
-        raw_input = user_input
-
-    language = session.full_config.get("language", "zh")
-    L = get_labels("context.labels", language)
-
-    processed_text, input_metadata = preprocess_input(raw_input, session.tool_registry, language=language)
-    log("info", f"输入类型={input_metadata['type']} 处理后={processed_text[:80]}")
-
-    raw_user_input = raw_input.get("text", "") or processed_text
-
-    log("info", "感知中...")
-    perception = session.cognition.perceive(
-        processed_text,
-        available_tools=session.tool_registry.list_available(),
-    )
-    category = perception.get("category", "chat")
-    log("info", f"分类={category} 意图={perception['intent']}")
-
-    corrected_input = perception.get("corrected_input", processed_text)
-    if corrected_input != processed_text:
-        llm_input = f"{corrected_input}\n{L['original_input_suffix'].format(text=processed_text)}"
-    else:
-        llm_input = processed_text
-
-    trajectory = None
-    if category == "knowledge":
-        memories = {
-            "profile": [], "hypotheses": [], "strategies": [],
-            "user_model": [], "events": [], "strategy_ids": [],
-            "memory_text": "",
-        }
-        memories_used_at = get_now()
-    else:
-        memories = build_memory_context(perception, session.executed_strategy_ids,
-                                        config=session.full_config)
-        session.executed_strategy_ids.update(memories.get("strategy_ids", []))
-        memories_used_at = get_now()
-
-        if category == "personal":
-            trajectory = session.cognition.analyze_trajectory(llm_input, memories)
-            if trajectory:
-                trajectory_block = _build_trajectory_block(trajectory, L)
-                if memories["memory_text"]:
-                    memories["memory_text"] += "\n\n" + trajectory_block
-                else:
-                    memories["memory_text"] = trajectory_block
-
-    tool_results = resolve_tools(
-        processed_text, perception, session.tool_registry,
-        session.cognition.config, input_metadata,
-        language=language,
-        profile=memories.get("profile"),
-    )
-
-    llm_input = _inject_tool_context(tool_results, memories, llm_input, L, log_fn)
-    _handle_skills(processed_text, session, memories, L, log_fn)
-
-    has_tool_data = any(t["result"].success and t["result"].data for t in tool_results) if tool_results else False
-    log("info", f"思考中...{'(云端)' if has_tool_data else '(本地)'}")
-    think_result = session.cognition.think(llm_input, perception, memories, use_cloud=has_tool_data)
-    final_response = _finalize_response(think_result, tool_results, language)
-
-    _save_turn_data(session, perception, think_result, memories, memories_used_at,
-                    user_input_at, raw_user_input, final_response, tool_results, input_metadata, L)
-
-    return {
-        "response": final_response,
-        "perception": perception,
-        "memories": memories,
-        "trajectory": trajectory,
-        "think_result": think_result,
-    }
-
-# ── Async version with parallel execution ──
-
 async def run_cycle_async(user_input: str | dict, session: Session,
                           log_fn=None) -> dict:
     def log(level, msg):
@@ -762,7 +625,7 @@ async def run_cycle_async(user_input: str | dict, session: Session,
     else:
         raw_input = user_input
 
-    language = session.full_config.get("language", "zh")
+    language = session.full_config.get("language", "en")
     L = get_labels("context.labels", language)
 
     processed_text, input_metadata = preprocess_input(raw_input, session.tool_registry, language=language)

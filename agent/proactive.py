@@ -43,6 +43,9 @@ _LOG = {
     },
 }
 
+DEFAULT_MAX_MESSAGES_PER_DAY = 3
+DEFAULT_MIN_GAP_MINUTES = 120
+
 def _log(key: str, lang: str = "en") -> str:
     return _LOG.get(lang, _LOG["en"]).get(key, _LOG["en"].get(key, key))
 
@@ -50,7 +53,7 @@ class ProactiveScanner:
 
     def __init__(self, config: dict):
         self.config = config
-        self.language = config.get("language", "zh")
+        self.language = config.get("language", "en")
         self.proactive_cfg = config.get("proactive", {})
         self.llm_config = config.get("llm", {})
         self.triggers_cfg = self.proactive_cfg.get("triggers", {})
@@ -91,12 +94,12 @@ class ProactiveScanner:
 
         logs_today = load_proactive_log(chat_id, since_hours=24)
 
-        max_per_day = self.proactive_cfg.get("max_messages_per_day", 3)
+        max_per_day = self.proactive_cfg.get("max_messages_per_day", DEFAULT_MAX_MESSAGES_PER_DAY)
         if len(logs_today) >= max_per_day:
             logger.debug(_log("daily_limit", self.language), chat_id, len(logs_today))
             return False
 
-        min_gap = self.proactive_cfg.get("min_gap_minutes", 120)
+        min_gap = self.proactive_cfg.get("min_gap_minutes", DEFAULT_MIN_GAP_MINUTES)
         if logs_today:
             last_sent = logs_today[0]["sent_at"]
             if hasattr(last_sent, 'tzinfo') and last_sent.tzinfo:

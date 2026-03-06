@@ -79,11 +79,7 @@ cloud_llm:
         auto: true                      # 自动升级 | Auto-escalate | 自動エスカレーション
         feedback: true                  # 升级后告知用户 | Notify user after escalation | エスカレーション後にユーザーに通知
         min_response_length: 20         # 回复少于此字数视为低质量 | Replies shorter than this are low quality | これより短い回答は低品質と判定
-        failure_keywords:               # 包含这些关键词视为失败 | Replies containing these are failures | これらを含む回答は失敗と判定
-            - "我不确定"
-            - "我无法"
-            - "抱歉，我不知道"
-            - "超出了我的能力"
+        # failure_keywords:             # 自动按语言加载 | Auto-loaded per language | 言語に応じて自動読み込み
 
 
 # ─── 工具 | Tools | ツール ────────────────────────────────

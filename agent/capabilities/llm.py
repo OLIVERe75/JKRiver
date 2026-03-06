@@ -6,7 +6,7 @@ class LLMCapability:
 
     def __init__(self, config: dict):
         self.local_config = config.get("llm", {})
-        self.language = config.get("language", "zh")
+        self.language = config.get("language", "en")
         self.cloud_config = config.get("cloud_llm", {})
         self.escalation_config = self.cloud_config.get("escalation", {})
 

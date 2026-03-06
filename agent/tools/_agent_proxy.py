@@ -28,7 +28,7 @@ class AgentProxyTool(BaseTool):
         return self._cfg.get("enabled", True)
 
     def _get_error_labels(self) -> dict:
-        return get_labels("errors.tools", self._global_config.get("language", "zh"))
+        return get_labels("errors.tools", self._global_config.get("language", "en"))
 
     def execute(self, params: dict) -> ToolResult:
         EL = self._get_error_labels()

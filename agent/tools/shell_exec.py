@@ -42,7 +42,7 @@ class ShellExecTool(BaseTool):
         self._tool_cfg = config.get("tools", {}).get("shell_exec", {})
 
     def manifest(self) -> ToolManifest:
-        lang = self.config.get("language", "zh")
+        lang = self.config.get("language", "en")
         fb = _FALLBACK.get(lang, _FALLBACK["en"])
         m = get_labels("tools.manifests", lang).get("shell_exec", {})
         return ToolManifest(
@@ -56,8 +56,8 @@ class ShellExecTool(BaseTool):
         return self._tool_cfg.get("enabled", False)
 
     def execute(self, params: dict) -> ToolResult:
-        TL = get_labels("tools.labels", self.config.get("language", "zh"))
-        EL = get_labels("errors.tools", self.config.get("language", "zh"))
+        TL = get_labels("tools.labels", self.config.get("language", "en"))
+        EL = get_labels("errors.tools", self.config.get("language", "en"))
         command = params.get("command", "").strip()
         if not command:
             return ToolResult(success=False, data="", error=EL["missing_command_param"])

@@ -27,7 +27,7 @@ class FinanceQueryTool(BaseTool):
         self.config = config
 
     def manifest(self) -> ToolManifest:
-        lang = self.config.get("language", "zh")
+        lang = self.config.get("language", "en")
         fb = _FALLBACK.get(lang, _FALLBACK["en"])
         m = get_labels("tools.manifests", lang).get("finance_query", {})
         return ToolManifest(
@@ -38,7 +38,7 @@ class FinanceQueryTool(BaseTool):
         )
 
     def execute(self, params: dict) -> ToolResult:
-        TL = get_labels("tools.labels", self.config.get("language", "zh"))
+        TL = get_labels("tools.labels", self.config.get("language", "en"))
         year = int(params["year"]) if params.get("year") else None
         month = int(params["month"]) if params.get("month") else None
         merchant = params.get("merchant") or None
@@ -78,5 +78,5 @@ class FinanceQueryTool(BaseTool):
             return ToolResult(success=True, data=summary + "\n".join(lines))
 
         except Exception as e:
-            EL = get_labels("errors.tools", self.config.get("language", "zh"))
+            EL = get_labels("errors.tools", self.config.get("language", "en"))
             return ToolResult(success=False, data="", error=EL["finance_query_failed"].format(error=e))

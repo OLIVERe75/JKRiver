@@ -75,7 +75,7 @@ class MCPManager:
                   arguments: dict) -> str:
         session_info = self._sessions.get(server_name)
         if not session_info:
-            EL = get_labels("errors.tools", "zh")
+            EL = get_labels("errors.tools", "en")
             raise RuntimeError(EL["mcp_server_not_connected"].format(name=server_name))
 
         session = session_info[0]
@@ -111,7 +111,7 @@ class MCPManager:
 
 class MCPBridgeTool(BaseTool):
 
-    def __init__(self, manager: MCPManager, tool_info: dict, language: str = "zh"):
+    def __init__(self, manager: MCPManager, tool_info: dict, language: str = "en"):
         self._manager = manager
         self._tool_info = tool_info
         self._server = tool_info["server"]

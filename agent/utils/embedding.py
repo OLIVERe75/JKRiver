@@ -210,11 +210,11 @@ def _observation_to_text(row: dict) -> str:
     subject = row.get("subject", "")
     content = row.get("content", "")
     if subject:
-        L = get_labels("context.labels", "zh")
+        L = get_labels("context.labels", "en")
         return f"{content} ({L['topic_prefix']}: {subject})"
     return content
 
-def _relationship_to_text(row: dict, language: str = "zh") -> str:
+def _relationship_to_text(row: dict, language: str = "en") -> str:
     import json as _json
     L = get_labels("context.labels", language)
     details = row.get("details", {})

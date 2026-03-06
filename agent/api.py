@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agent.config import load_config
-from agent.core import SessionManager, run_cycle, run_cycle_async
+from agent.core import SessionManager, run_cycle_async
 from agent.storage import load_current_profile, load_full_current_profile
 
 _config = None
@@ -96,7 +96,7 @@ async def trigger_sleep():
         from agent.sleep import run_async as sleep_run_async
         await sleep_run_async()
         from agent.config.prompts import get_labels
-        L = get_labels("context.labels", _config.get("language", "zh"))
+        L = get_labels("context.labels", _config.get("language", "en"))
         return {"status": "ok", "message": L["memory_done"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

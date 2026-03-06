@@ -1,7 +1,7 @@
 
 from agent.config.prompts import get_labels
 
-def preprocess_input(raw_input: dict, registry, language: str = "zh") -> tuple[str, dict]:
+def preprocess_input(raw_input: dict, registry, language: str = "en") -> tuple[str, dict]:
     L = get_labels("context.labels", language)
 
     input_type = raw_input.get("type", "text")

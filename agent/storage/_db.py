@@ -5,7 +5,10 @@ import psycopg2
 
 from agent.config import load_config
 
-def _load_db_config():
+_db_config: dict | None = None
+
+
+def _load_db_config() -> dict:
     db = load_config().get("database", {})
     cfg = {
         "dbname": db.get("name", "Riverse"),
@@ -19,7 +22,14 @@ def _load_db_config():
         cfg["port"] = db["port"]
     return cfg
 
-DB_CONFIG = _load_db_config()
+
+def _get_db_config() -> dict:
+    """Lazy-load database config on first use (not at import time)."""
+    global _db_config
+    if _db_config is None:
+        _db_config = _load_db_config()
+    return _db_config
+
 
 _thread_local = threading.local()
 
@@ -51,7 +61,7 @@ def get_db_connection():
     shared = getattr(_thread_local, "conn", None)
     if shared is not None:
         return _TransactionProxy(shared)
-    return psycopg2.connect(**DB_CONFIG)
+    return psycopg2.connect(**_get_db_config())
 
 
 @contextmanager
@@ -62,7 +72,7 @@ def transaction():
     suppresses individual commit/rollback/close.  The real commit (or
     rollback on exception) happens when the block exits.
     """
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(**_get_db_config())
     _thread_local.conn = conn
     try:
         yield conn

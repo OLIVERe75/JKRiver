@@ -14,11 +14,11 @@ from telegram.ext import (
 
 from datetime import time as dt_time
 
-from agent.config import load_config
 from agent.config.prompts import get_labels
-from agent.core import SessionManager, run_cycle_async
-from agent.channel_utils import split_message, safe_remove
-from agent.proactive import ProactiveScanner
+from agent.core import run_cycle_async
+from agent.channel_utils import (
+    split_message, safe_remove, run_sleep_async, init_bot, is_allowed, get_session,
+)
 from agent.skills import SkillRegistry
 from agent.skills.executor import execute_skill
 
@@ -98,41 +98,26 @@ def _log(key: str) -> str:
     return _LOG.get(lang, _LOG["en"]).get(key, _LOG["en"].get(key, key))
 
 async def _run_sleep_async() -> str | None:
-    try:
-        from agent.sleep import run_async as sleep_run_async
-        await sleep_run_async()
+    result = await run_sleep_async()
+    if result:
         logger.info(_log("sleep_done"))
         return "💤 记忆整理完成"
-    except Exception:
-        logger.exception(_log("sleep_error"))
-        return None
+    return None
 
 _config: dict = {}
-_manager: SessionManager | None = None
+_manager = None
 _tg_config: dict = {}
-_proactive: ProactiveScanner | None = None
+_proactive = None
 
 def _init():
     global _config, _manager, _tg_config, _proactive
-    _config = load_config()
-    _manager = SessionManager(_config)
-    _tg_config = _config.get("telegram", {})
-
-    temp_dir = _tg_config.get("temp_dir", "tmp/telegram")
-    os.makedirs(temp_dir, exist_ok=True)
-
-    if _config.get("proactive", {}).get("enabled"):
-        _proactive = ProactiveScanner(_config)
+    _config, _manager, _tg_config, _proactive = init_bot("telegram")
 
 def _is_allowed(user_id: int) -> bool:
-    allowed = _tg_config.get("allowed_user_ids", [])
-    if not allowed:
-        return True
-    return user_id in allowed
+    return is_allowed(_tg_config, user_id)
 
 def _get_session(user_id: int):
-    session_id = f"tg_{user_id}"
-    return _manager.get_or_create(session_id)
+    return get_session(_manager, user_id, "tg")
 
 MAX_TG_LENGTH = 4096
 
@@ -159,7 +144,7 @@ async def _process_and_reply(
         response_text = result["response"]
     except Exception:
         logger.exception(_log("run_cycle_error"))
-        BL = get_labels("bot.messages", _config.get("language", "zh"))
+        BL = get_labels("bot.messages", _config.get("language", "en"))
         response_text = BL["error_fallback"]
     finally:
         typing_done.set()
@@ -182,7 +167,7 @@ async def _process_and_reply(
                 _safe_remove(audio_path)
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    BL = get_labels("bot.messages", _config.get("language", "zh"))
+    BL = get_labels("bot.messages", _config.get("language", "en"))
     if not _is_allowed(update.effective_user.id):
         await update.message.reply_text(BL["no_permission"])
         return
@@ -198,7 +183,7 @@ async def cmd_new(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     session_id = f"tg_{user_id}"
     _manager.remove(session_id)
-    BL = get_labels("bot.messages", _config.get("language", "zh"))
+    BL = get_labels("bot.messages", _config.get("language", "en"))
     await update.message.reply_text(BL["session_reset"])
 
     chat_id = update.effective_chat.id

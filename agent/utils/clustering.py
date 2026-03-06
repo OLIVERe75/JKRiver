@@ -242,7 +242,7 @@ def _save_clusters(clusters_data: list[dict], embeddings_hash: str):
 
 def _generate_cluster_themes(clusters_info: list[dict], config: dict) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     prompt_text = get_prompt("sleep.cluster_themes", language)
 
     cluster_descriptions = []
@@ -353,6 +353,7 @@ def load_cluster_themes() -> list[dict]:
                 )
                 return [dict(r) for r in cur.fetchall()]
             except Exception:
+                logger.warning("load_cluster_themes query failed", exc_info=True)
                 conn.rollback()
                 return []
     finally:

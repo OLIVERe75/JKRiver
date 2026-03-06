@@ -3,7 +3,7 @@ import json
 from agent.config.prompts import get_labels
 
 
-def _format_trajectory_block(trajectory: dict | None, language: str = "zh") -> str:
+def _format_trajectory_block(trajectory: dict | None, language: str = "en") -> str:
     L = get_labels("context.labels", language)
     if not trajectory or not trajectory.get("life_phase"):
         return f"\n{L['trajectory_summary']}：{L['trajectory_none']}\n"
@@ -20,7 +20,7 @@ def _format_trajectory_block(trajectory: dict | None, language: str = "zh") -> s
     )
 
 
-def _format_profile_for_llm(profile: list[dict], timeline: list[dict] | None = None, language: str = "zh", max_items: int = 80) -> str:
+def _format_profile_for_llm(profile: list[dict], timeline: list[dict] | None = None, language: str = "en", max_items: int = 80) -> str:
     L = get_labels("context.labels", language)
     if not profile:
         return L["no_profile"] + "\n"

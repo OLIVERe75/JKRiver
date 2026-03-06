@@ -11,7 +11,7 @@ from agent.storage import (
 from agent.sleep._parsing import _parse_json_array, _parse_json_object
 
 
-def _preprocess_disputes(disputed_pairs: list[dict], language: str = "zh") -> tuple[list[dict], list[dict]]:
+def _preprocess_disputes(disputed_pairs: list[dict], language: str = "en") -> tuple[list[dict], list[dict]]:
     """Shared rule-based preprocessing for dispute resolution.
     Returns (rule_results, llm_candidates)."""
     L = get_labels("context.labels", language)
@@ -55,7 +55,7 @@ def _preprocess_disputes(disputed_pairs: list[dict], language: str = "zh") -> tu
     return rule_results, llm_candidates
 
 
-def _build_dispute_messages(pair: dict, traj_context: str, language: str = "zh") -> list[dict]:
+def _build_dispute_messages(pair: dict, traj_context: str, language: str = "en") -> list[dict]:
     """Build LLM messages for a single dispute pair."""
     L = get_labels("context.labels", language)
     now = get_now()
@@ -167,7 +167,7 @@ def _parse_dispute_result(raw: str, old_id: int, new_id: int) -> dict | None:
     return None
 
 
-def _build_traj_context(trajectory: dict | None, language: str = "zh") -> str:
+def _build_traj_context(trajectory: dict | None, language: str = "en") -> str:
     """Build trajectory context string for dispute resolution."""
     if not trajectory or not trajectory.get("life_phase"):
         return ""
@@ -182,7 +182,7 @@ def _build_traj_context(trajectory: dict | None, language: str = "zh") -> str:
 def resolve_disputes_with_llm(disputed_pairs: list[dict], config: dict,
                               trajectory: dict | None = None) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     if not disputed_pairs:
         return []
 
@@ -206,7 +206,7 @@ def resolve_disputes_with_llm(disputed_pairs: list[dict], config: dict,
 async def resolve_disputes_with_llm_async(disputed_pairs: list[dict], config: dict,
                                            trajectory: dict | None = None) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     if not disputed_pairs:
         return []
 

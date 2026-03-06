@@ -94,7 +94,7 @@ class ToolRegistry:
 
         for tool_info in manager.list_tools():
             try:
-                bridge = MCPBridgeTool(manager, tool_info, language=self.config.get("language", "zh"))
+                bridge = MCPBridgeTool(manager, tool_info, language=self.config.get("language", "en"))
                 manifest = bridge.manifest()
                 if manifest.name not in self._tools:
                     self._tools[manifest.name] = bridge
@@ -138,7 +138,7 @@ class ToolRegistry:
 
     def execute(self, name: str, params: dict) -> ToolResult:
         from agent.config.prompts import get_labels
-        EL = get_labels("errors.tools", self.config.get("language", "zh"))
+        EL = get_labels("errors.tools", self.config.get("language", "en"))
         tool = self._tools.get(name)
         if not tool:
             return ToolResult(success=False, data="", error=EL["tool_not_found"].format(name=name))

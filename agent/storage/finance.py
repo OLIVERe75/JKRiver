@@ -7,7 +7,11 @@ from agent.utils.time_context import get_now
 from ._db import get_db_connection
 
 import psycopg2
+from agent.config import load_config
 from agent.config.prompts import get_labels
+
+def _lang() -> str:
+    return load_config().get("language", "en")
 
 _finance_tables_ensured = False
 
@@ -322,7 +326,7 @@ def get_finance_summary(
                 extra_conds = conditions.copy()
                 extra_params = params.copy()
 
-                _uncategorized = get_labels("context.labels", "zh").get("uncategorized", "未分类")
+                _uncategorized = get_labels("context.labels", _lang()).get("uncategorized", "未分类")
                 cur.execute(
                     f"SELECT COALESCE(category, %s) AS category, "
                     f"COUNT(*) AS count, "
@@ -393,7 +397,7 @@ def get_finance_category_stats(
 
     conn = get_db_connection()
     try:
-        _uncategorized = get_labels("context.labels", "zh").get("uncategorized", "未分类")
+        _uncategorized = get_labels("context.labels", _lang()).get("uncategorized", "未分类")
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 f"SELECT COALESCE(category, %s) AS category, "
@@ -466,7 +470,7 @@ def import_finance_from_email(email_id: str, email_subject: str,
     parsed = parse_smcc_email(email_body)
     if not parsed:
         return {"success": False, "duplicate": False, "parsed": None,
-                "error": get_labels("context.labels", "zh")["parse_failed"]}
+                "error": get_labels("context.labels", _lang())["parse_failed"]}
 
     txn_id = save_finance_transaction(
         transaction_date=parsed["date"],

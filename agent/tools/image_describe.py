@@ -45,7 +45,7 @@ class ImageDescribeTool(BaseTool):
             self.api_key = ""
 
     def manifest(self) -> ToolManifest:
-        lang = self.config.get("language", "zh")
+        lang = self.config.get("language", "en")
         fb = _FALLBACK.get(lang, _FALLBACK["en"])
         m = get_labels("tools.manifests", lang).get("image_describe", {})
         return ToolManifest(
@@ -62,7 +62,7 @@ class ImageDescribeTool(BaseTool):
 
     def execute(self, params: dict) -> ToolResult:
         file_path = params.get("file_path", "")
-        lang = self.config.get("language", "zh")
+        lang = self.config.get("language", "en")
         m = get_labels("tools.manifests", lang).get("image_describe", {})
         EL = get_labels("errors.tools", lang)
         fb = _FALLBACK.get(lang, _FALLBACK["en"])
@@ -79,7 +79,7 @@ class ImageDescribeTool(BaseTool):
             return self._describe_local(file_path, question)
 
     def _describe_openai(self, file_path: str, question: str) -> ToolResult:
-        EL = get_labels("errors.tools", self.config.get("language", "zh"))
+        EL = get_labels("errors.tools", self.config.get("language", "en"))
         try:
             with open(file_path, "rb") as f:
                 image_data = base64.b64encode(f.read()).decode("utf-8")
@@ -123,7 +123,7 @@ class ImageDescribeTool(BaseTool):
             return ToolResult(success=False, data="", error=EL["image_describe_failed"].format(error=e))
 
     def _describe_local(self, file_path: str, question: str) -> ToolResult:
-        EL = get_labels("errors.tools", self.config.get("language", "zh"))
+        EL = get_labels("errors.tools", self.config.get("language", "en"))
         try:
             with open(file_path, "rb") as f:
                 image_data = base64.b64encode(f.read()).decode("utf-8")

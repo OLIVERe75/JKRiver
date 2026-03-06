@@ -42,7 +42,7 @@ async def _call_chat_completions_async(messages: list[dict], config: dict) -> st
             return resp.json()["choices"][0]["message"]["content"]
     except Exception as e:
         from agent.config.prompts import get_labels
-        EL = get_labels("errors.llm", config.get("language", "zh"))
+        EL = get_labels("errors.llm", config.get("language", "en"))
         return EL["call_failed"].format(error=e)
 
 async def _call_responses_api_async(messages: list[dict], config: dict) -> str:
@@ -84,11 +84,11 @@ async def _call_responses_api_async(messages: list[dict], config: dict) -> str:
                         return text
 
         from agent.config.prompts import get_labels
-        EL = get_labels("errors.llm", config.get("language", "zh"))
+        EL = get_labels("errors.llm", config.get("language", "en"))
         return EL["responses_no_text"]
     except Exception as e:
         from agent.config.prompts import get_labels
-        EL = get_labels("errors.llm", config.get("language", "zh"))
+        EL = get_labels("errors.llm", config.get("language", "en"))
         return EL["call_failed"].format(error=e)
 
 # ── Sync versions (unchanged, for backward compatibility) ──
@@ -131,7 +131,7 @@ def _call_chat_completions(messages: list[dict], config: dict) -> str:
         return resp.json()["choices"][0]["message"]["content"]
     except Exception as e:
         from agent.config.prompts import get_labels
-        EL = get_labels("errors.llm", config.get("language", "zh"))
+        EL = get_labels("errors.llm", config.get("language", "en"))
         return EL["call_failed"].format(error=e)
 
 def _call_responses_api(messages: list[dict], config: dict) -> str:
@@ -173,11 +173,11 @@ def _call_responses_api(messages: list[dict], config: dict) -> str:
                         return text
 
         from agent.config.prompts import get_labels
-        EL = get_labels("errors.llm", config.get("language", "zh"))
+        EL = get_labels("errors.llm", config.get("language", "en"))
         return EL["responses_no_text"]
     except Exception as e:
         from agent.config.prompts import get_labels
-        EL = get_labels("errors.llm", config.get("language", "zh"))
+        EL = get_labels("errors.llm", config.get("language", "en"))
         return EL["call_failed"].format(error=e)
 
 def _append_citations(text: str, annotations: list[dict], label: str = "Sources") -> str:

@@ -2,8 +2,12 @@ import json
 from datetime import datetime, timedelta
 from psycopg2.extras import RealDictCursor
 from agent.utils.time_context import get_now
+from agent.config import load_config
 from agent.config.prompts import get_labels
 from ._db import get_db_connection
+
+def _lang() -> str:
+    return load_config().get("language", "en")
 from ._synonyms import _get_category_synonyms, _get_subject_synonyms
 
 
@@ -79,7 +83,7 @@ def save_hypothesis(category: str, subject: str, claim: str,
 
                 if existing_claim and existing_claim.strip() != claim.strip() and existing_status != 'dormant':
                     if suspected_value:
-                        _L = get_labels("context.labels", "zh")
+                        _L = get_labels("context.labels", _lang())
                         evidence_entry = {
                             "reason": _L["new_obs_supports"].format(claim=claim),
                         }
@@ -417,7 +421,7 @@ def resolve_suspicion(hypothesis_id: int, accept: bool):
 
                 old_evidence_against = old_evidence_against if old_evidence_against else []
                 suspected_evidence = suspected_evidence if suspected_evidence else []
-                _L = get_labels("context.labels", "zh")
+                _L = get_labels("context.labels", _lang())
                 for se in suspected_evidence:
                     old_evidence_against.append({
                         "reason": f"{_L['rejection_tag']} {se.get('reason', '')}",

@@ -12,7 +12,7 @@ from agent.sleep._formatting import _format_profile_for_llm
 def extract_observations_and_tags(conversations: list[dict], config: dict,
                                    existing_profile: list[dict] | None = None) -> dict:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
 
     text = ""
@@ -88,7 +88,7 @@ def extract_observations_and_tags(conversations: list[dict], config: dict,
 
 def extract_events(conversations: list[dict], config: dict) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
 
     dialogue = ""
@@ -115,7 +115,7 @@ def classify_observations(observations: list[dict],
                            timeline: list[dict] | None = None,
                            trajectory: dict | None = None) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
     if not observations:
         return []
@@ -191,7 +191,7 @@ def create_new_facts(new_observations: list[dict],
                      behavioral_signals: list | None = None,
                      trajectory: dict | None = None) -> list[dict]:
     llm_config = config.get("llm", {})
-    language = config.get("language", "zh")
+    language = config.get("language", "en")
     L = get_labels("context.labels", language)
     if not new_observations:
         return []

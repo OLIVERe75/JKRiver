@@ -18,6 +18,6 @@ class CapabilityRouter:
     def execute(self, capability_name: str, **kwargs):
         cap = self._capabilities.get(capability_name)
         if not cap:
-            EL = get_labels("errors.llm", self.config.get("language", "zh"))
+            EL = get_labels("errors.llm", self.config.get("language", "en"))
             raise ValueError(EL["unknown_capability"].format(name=capability_name))
         return cap.execute(**kwargs)

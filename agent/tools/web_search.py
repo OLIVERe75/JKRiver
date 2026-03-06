@@ -25,7 +25,7 @@ class WebSearchTool(BaseTool):
 
     def __init__(self, config: dict):
         self.config = config
-        self.language = config.get("language", "zh")
+        self.language = config.get("language", "en")
         self._search_config = None
         for cfg in config.get("cloud_llm_configs", []):
             if cfg.get("search"):
@@ -33,7 +33,7 @@ class WebSearchTool(BaseTool):
                 break
 
     def manifest(self) -> ToolManifest:
-        lang = self.config.get("language", "zh")
+        lang = self.config.get("language", "en")
         fb = _FALLBACK.get(lang, _FALLBACK["en"])
         m = get_labels("tools.manifests", lang).get("web_search", {})
         return ToolManifest(
@@ -47,7 +47,7 @@ class WebSearchTool(BaseTool):
         return self._search_config is not None
 
     def execute(self, params: dict) -> ToolResult:
-        EL = get_labels("errors.tools", self.config.get("language", "zh"))
+        EL = get_labels("errors.tools", self.config.get("language", "en"))
         query = params.get("query", "")
         if not query:
             return ToolResult(success=False, data="", error=EL["missing_search_query"])
@@ -57,12 +57,12 @@ class WebSearchTool(BaseTool):
             {"role": "user", "content": query},
         ]
 
-        L = get_labels("context.labels", self.config.get("language", "zh"))
+        L = get_labels("context.labels", self.config.get("language", "en"))
         cfg = dict(self._search_config)
         cfg["_citation_label"] = L.get("citation_header", "Sources")
         response = call_llm(messages, cfg)
 
-        ELL = get_labels("errors.llm", self.config.get("language", "zh"))
+        ELL = get_labels("errors.llm", self.config.get("language", "en"))
         fail_prefix = ELL.get("call_failed", "").split("{error}")[0]
         if fail_prefix and response.startswith(fail_prefix):
             return ToolResult(success=False, data="", error=response)
