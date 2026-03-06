@@ -87,3 +87,14 @@ def _validate_config(raw: dict):
     max_tokens = llm.get("max_tokens")
     if max_tokens is not None and max_tokens <= 0:
         logger.warning("max_tokens %d is not positive", max_tokens)
+
+    if provider == "openai" and not llm.get("api_key"):
+        logger.warning("llm_provider is 'openai' but no api_key configured")
+
+    tg = raw.get("telegram", {})
+    if tg.get("enabled") and not tg.get("token"):
+        logger.warning("telegram.enabled is true but no token configured")
+
+    dc = raw.get("discord", {})
+    if dc.get("enabled") and not dc.get("token"):
+        logger.warning("discord.enabled is true but no token configured")

@@ -1,14 +1,19 @@
 
+import logging
 from datetime import datetime
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from agent.config import load_config
 from agent.core import SessionManager, run_cycle_async
-from agent.storage import load_current_profile, load_full_current_profile
+from agent.storage import get_db_connection, load_current_profile, load_full_current_profile
+
+logger = logging.getLogger(__name__)
 
 _config = None
 _manager = None
@@ -100,6 +105,51 @@ async def trigger_sleep():
         return {"status": "ok", "message": L["memory_done"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+async def health_check():
+    """Check DB connectivity and LLM API reachability."""
+    db_ok = False
+    llm_ok = False
+
+    # DB check
+    try:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            db_ok = True
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning("Health check: DB unreachable: %s", e)
+
+    # LLM check (HEAD request to api_base)
+    if _config:
+        api_base = _config.get("llm", {}).get("api_base", "")
+        if api_base:
+            try:
+                async with httpx.AsyncClient(timeout=5) as client:
+                    resp = await client.head(api_base)
+                    llm_ok = resp.status_code < 500
+            except Exception as e:
+                logger.warning("Health check: LLM unreachable: %s", e)
+        else:
+            llm_ok = True  # no LLM configured = not applicable
+
+    if db_ok and llm_ok:
+        status = "ok"
+    elif db_ok or llm_ok:
+        status = "degraded"
+    else:
+        status = "error"
+
+    code = 200 if status == "ok" else 503
+    return JSONResponse(
+        status_code=code,
+        content={"status": status, "db": db_ok, "llm": llm_ok},
+    )
+
 
 @app.get("/profile", response_model=list[ProfileEntry])
 async def get_profile():
